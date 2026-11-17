@@ -15,7 +15,7 @@ fs.mkdirSync(output,{recursive:true});
     return url.origin==='https://appassets.androidplatform.net'&&file.startsWith(web+path.sep)&&fs.existsSync(file)?route.fulfill({path:file}):route.abort();
    });
    await page.addInitScript(()=>{
-    localStorage.setItem('chat-icons','off');let percent=100;
+    let percent=100;
     window.Native={locale:()=>JSON.stringify({choice:'en'}),textSize:()=>JSON.stringify({percent}),postMessage(raw){
      const m=JSON.parse(raw);let result={};
      if(m.action==='state')result={ready:true,threadId:'font-test',busy:false,models:[],sessions:[],projects:[],account:{},workspace:{selected:false,key:'',name:'Codex',hasLocalFolder:true,available:true},messages:[{id:'u',role:'user',text:'Readable text on a phone and a tablet.',createdAt:1790670840000},{id:'a',role:'assistant',text:'Read this answer without changing your draft or your model.'}]};

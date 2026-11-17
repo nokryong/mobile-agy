@@ -20,7 +20,7 @@ fs.mkdirSync(output, {recursive:true});
     return file.startsWith(web + path.sep) && fs.existsSync(file) ? route.fulfill({path:file}) : route.fulfill({status:404,body:''});
    });
    await page.addInitScript(() => {
-    localStorage.setItem('chat-icons','off');
+
     const binding = (key, name) => ({key,name,uri:'content://provider/tree/' + 'long-folder-'.repeat(15) + key,available:true,hasLocalFolder:true});
     window.testState = {ready:false,account:{},authState:'unknown',models:[],busy:false,threadId:'ta',messages:[],
      workspace:{key:'a',selected:true,name:'Shared project',available:true},

@@ -20,9 +20,4 @@ public class ChatWebActivityTest {
         }
         assertFalse(ChatWebActivity.modeLink(Uri.parse("mobilecodex://mode/codex?command=delete")));
     }
-    @Test public void imageRouteCannotSelectArbitraryPathsOrScripts() {
-        assertTrue(ChatIconStore.imageName("01-idle.png"));
-        for (String name : new String[]{"../auth.json", "01-idle.js", "folder/01-idle.png", "01-idle.png?token=secret", "evil.png"})
-            assertFalse(ChatIconStore.imageName(name));
-    }
 }

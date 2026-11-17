@@ -2,7 +2,6 @@ package dev.mobilecodex.app;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import dev.mobilecodex.app.core.ChatIconInstructions;
 import java.util.*;
 import java.util.regex.*;
 import static dev.mobilecodex.app.core.Json.*;
@@ -156,9 +155,6 @@ final class AgentGroup {
     }
     /** Prompt for an invited agent: everything after its cursor, plus who is present. */
     static String agentPrompt(JSONObject session, JSONObject member, JSONArray messages) {
-        return agentPrompt(session, member, messages, false);
-    }
-    static String agentPrompt(JSONObject session, JSONObject member, JSONArray messages, boolean chatIconsEnabled) {
         String id = member.optString("id");
         int from = indexOf(messages, member.optString("cursorId")) + 1;
         String mode = member.optString("mode", "chat");
@@ -168,8 +164,7 @@ final class AgentGroup {
             default -> "공유된 첨부 파일은 mobile_attachment 도구로 읽을 수 있습니다. 프로젝트나 휴대폰 도구는 사용할 수 없습니다.";
         };
         String header = "당신은 Mobile-agy의 Antigravity 에이전트입니다.\n"
-            + access + " 대화 기록을 읽고 요청을 수행하세요. 도구 결과 없이 작업 성공을 주장하지 마세요.\n"
-            + ChatIconInstructions.forEnabled(chatIconsEnabled) + "\n";
+            + access + " 대화 기록을 읽고 요청을 수행하세요. 도구 결과 없이 작업 성공을 주장하지 마세요.\n";
         Set<String> known = new HashSet<>();
         if (!member.optString("nativeSession").isBlank()) for (int i = from; i < messages.length(); i++) {
             JSONObject m = messages.optJSONObject(i);
@@ -189,6 +184,6 @@ final class AgentGroup {
         if (value == null) throw new IllegalArgumentException("Unknown agent");
         if (!MODES.contains(mode)) throw new IllegalArgumentException("Invalid agent permission");
         return obj("id", value[0], "provider", value[1], "name", value[2], "model", model, "effort", effort, "mode", mode,
-            "approvalMode", "ask", "character", "", "enabled", true, "nativeSession", "", "cursorId", "");
+            "approvalMode", "ask", "enabled", true, "nativeSession", "", "cursorId", "");
     }
 }

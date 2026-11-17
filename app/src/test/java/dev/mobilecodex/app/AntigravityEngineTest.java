@@ -56,8 +56,9 @@ public class AntigravityEngineTest {
         ((ScheduledExecutorService)timer.get(engine)).shutdownNow();
     }
     @Test public void sendsAndResumesWithoutCodexLoginOrRpc() throws Exception {
-        call("chat.send", obj("text", "hello", "model", "agy-model"));
+        call("chat.send", obj("text", "hello", "model", "agy-model", "chatIconsEnabled", true));
         assertNotNull(request);
+        assertFalse(request.getString("prompt").contains("[[icon:"));
         assertEquals("agy", request.getString("provider"));
         assertEquals("agy-model", request.getString("model"));
         String local = call("state", obj()).getString("threadId");

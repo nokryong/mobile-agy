@@ -1,17 +1,5 @@
 (function(root){
   'use strict';
-  const chatIcons = ['idle','acknowledged','thinking','working','question','done','blocked','smug','greeting','inspecting','explaining','discovery','caution','sorry','happy','skeptical','eohu','uhehe','insult','punch','uncertain','disagree','not-allowed','file-request','reviewed','source','fixed','lol','good-grief','wink','heart','sleep'];
-  const chatIconLabels = ['대기중','접수','생각중','작업중','주인님?','해냈다','왜안됨','계획대로','안녕','어디보자','잘보세요','찾았다','잠깐','미안해요','좋았어','진짜?','어흐~','우헤헤','븅신','펀치','조금애매함','아닌데?','그건안돼','파일줘봐','검토완료','출처있음','수정완료','ㄹㅇㅋㅋ','정말이지','윙크','하트','잘자'];
-  const chatIconCategories = {
-    질문:'question', 확인:'reviewed', 검색:'inspecting', 완료:'done', 긍정:'happy', 부정:'disagree',
-    웃기:'uhehe', 사랑:'heart', 화남:'punch', 당황:'blocked', 잠:'sleep', 미안:'sorry', 요청:'file-request',
-    작업중:'working', 자랑:'smug', 오류:'blocked', 응원:'heart', 인사:'greeting', 대기:'idle', 생각:'thinking',
-    설명:'explaining', 발견:'discovery', 주의:'caution', 의심:'skeptical', 애매:'uncertain', 근거:'source'
-  };
-  const normalizeIconTag = value => String(value || '').replace(/[\u200B-\u200D\uFEFF\s]/g, '').toLowerCase();
-  const chatIconTags = Object.create(null);
-  chatIconLabels.forEach((label, index) => { chatIconTags[normalizeIconTag(label)] = chatIcons[index]; });
-  Object.entries(chatIconCategories).forEach(([category, icon]) => { chatIconTags[normalizeIconTag(category)] = icon; });
   function fileDiff(before,after,options={}){
     // Bound both alignment work and rendered output: a large rewrite must never
     // allocate a quadratic LCS table or fill the preview with deletions alone.
@@ -160,9 +148,6 @@
   }
   const core={
     fileDiff,
-    chatIconNames(){return chatIcons.slice();},
-    chatIconUrl(name){const i=chatIcons.indexOf(name);return i<0 ? null : '/chat-icons/'+String(i+1).padStart(2,'0')+'-'+name+'.png';},
-    chatIconForTag(tag){return chatIconTags[normalizeIconTag(tag)] || null;},
     parent(path){return path.includes('/')?path.slice(0,path.lastIndexOf('/')):'';},
     basename(path){return path.slice(path.lastIndexOf('/')+1);},
     join(parent,name){return parent?parent+'/'+name:name;},

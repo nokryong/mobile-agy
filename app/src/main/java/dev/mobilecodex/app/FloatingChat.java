@@ -30,9 +30,8 @@ final class FloatingChat implements Engine.Ui {
     private ImageView bubbleFace, headerFace;
     private View bubbleDot;
     private JSONObject state = obj();
-    private String scope = "", transcriptText = "", face = "";
+    private String scope = "", transcriptText = "";
     private boolean expanded, visible, binding, sending, attention;
-    private final java.util.Map<String, android.graphics.Bitmap> faces = new java.util.HashMap<>();
     FloatingChat(PhoneUseService service, Engine engine) {
         this.service = service; this.engine = engine; windows = service.getSystemService(WindowManager.class);
         drafts = service.getSharedPreferences("floating-drafts", 0);
@@ -73,40 +72,24 @@ final class FloatingChat implements Engine.Ui {
         TextView b = new TextView(service); b.setText(glyph); b.setTextSize(17); b.setGravity(Gravity.CENTER); b.setTextColor(text2()); b.setContentDescription(description);
         b.setClickable(true); b.setFocusable(true); b.setOnClickListener(v -> action.run()); return b;
     }
-    private ImageView faceView(int size) {
-        ImageView view = new ImageView(service); view.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    private ImageView logoView(int size) {
+        ImageView view = new ImageView(service); view.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        view.setImageResource(R.drawable.mobile_agy_logo);
+        view.setPadding(dp(5), dp(5), dp(5), dp(5));
         GradientDrawable circle = new GradientDrawable(); circle.setShape(GradientDrawable.OVAL); circle.setColor(Color.WHITE);
         view.setBackground(circle); view.setClipToOutline(true); view.setLayoutParams(new LinearLayout.LayoutParams(size, size)); return view;
     }
-    /** Built-in character faces, cropped from the chat stickers (1254px squares). */
-    @SuppressWarnings("deprecation")
-    private android.graphics.Bitmap faceBitmap(String name) {
-        return faces.computeIfAbsent(name, key -> {
-            try (java.io.InputStream stream = service.getAssets().open("web/chat-icons/" + key + ".png")) {
-                android.graphics.BitmapRegionDecoder decoder = android.graphics.BitmapRegionDecoder.newInstance(stream, false);
-                android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options(); options.inSampleSize = 4;
-                android.graphics.Bitmap bitmap = decoder.decodeRegion(new Rect(300, 390, 940, 1030), options); decoder.recycle(); return bitmap;
-            } catch (Exception error) { return null; }
-        });
-    }
-    private String faceName() {
-        if (attention) return "05-question";
-        if (state.optBoolean("busy")) return "04-working";
-        return "01-idle";
-    }
     private void updateFace() {
         if (bubbleFace == null) return;
-        String next = faceName();
-        if (!next.equals(face)) { face = next; android.graphics.Bitmap bitmap = faceBitmap(next); bubbleFace.setImageBitmap(bitmap); headerFace.setImageBitmap(bitmap); }
         GradientDrawable dot = new GradientDrawable(); dot.setShape(GradientDrawable.OVAL); dot.setStroke(dp(2), surface());
         dot.setColor(attention ? Color.rgb(245,158,11) : state.optBoolean("busy") ? Color.rgb(47,124,246) : Color.rgb(16,163,127));
         bubbleDot.setBackground(dot);
     }
     private void build() {
         root = new FrameLayout(service); root.setClipChildren(false); root.setClipToPadding(false); root.setPadding(dp(6), dp(6), dp(6), dp(6));
-        // Collapsed: only the character face, draggable; tap to open.
-        bubble = new FrameLayout(service); bubble.setContentDescription(t("Codex 플로팅 대화 열기"));
-        bubbleFace = faceView(dp(56)); bubbleFace.setElevation(dp(6));
+        // Draggable app logo; tap to open.
+        bubble = new FrameLayout(service); bubble.setContentDescription("Mobile-agy · " + t("플로팅 대화 열기"));
+        bubbleFace = logoView(dp(56)); bubbleFace.setElevation(dp(6));
         bubble.addView(bubbleFace, new FrameLayout.LayoutParams(dp(56), dp(56)));
         bubbleDot = new View(service); bubbleDot.setElevation(dp(7));
         FrameLayout.LayoutParams dotLayout = new FrameLayout.LayoutParams(dp(14), dp(14), Gravity.BOTTOM | Gravity.END); dotLayout.setMargins(0, 0, dp(1), dp(1));
@@ -117,9 +100,9 @@ final class FloatingChat implements Engine.Ui {
         panel = new LinearLayout(service); panel.setOrientation(LinearLayout.VERTICAL); panel.setPadding(dp(14), dp(10), dp(10), dp(12));
         GradientDrawable card = shape(surface(), 20); card.setStroke(dp(1), line()); panel.setBackground(card); panel.setElevation(dp(10));
         LinearLayout header = new LinearLayout(service); header.setGravity(Gravity.CENTER_VERTICAL);
-        headerFace = faceView(dp(32)); header.addView(headerFace);
+        headerFace = logoView(dp(32)); header.addView(headerFace);
         LinearLayout titles = new LinearLayout(service); titles.setOrientation(LinearLayout.VERTICAL); titles.setPadding(dp(10), 0, dp(4), 0);
-        TextView title = new TextView(service); title.setText("Codex"); title.setTextSize(15); title.setTextColor(text()); title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); titles.addView(title);
+        TextView title = new TextView(service); title.setText("Mobile-agy"); title.setTextSize(15); title.setTextColor(text()); title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); titles.addView(title);
         status = new TextView(service); status.setTextColor(text2()); status.setTextSize(12); status.setMaxLines(2); status.setEllipsize(TextUtils.TruncateAt.END); titles.addView(status);
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
         TextView app = pill(t("앱에서 열기"), false, this::openApp); app.setMinHeight(dp(32)); app.setTextSize(12); header.addView(app, new LinearLayout.LayoutParams(-2, dp(32)));

@@ -246,7 +246,7 @@ test('streaming reuses message identity',()=>{const m=[];C.appendDelta(m,'one','
 test('every wired control exists and initial state renders safely',async()=>{
  const {w,snapshot}=setup();await tick();
  w.mobileCodexEvent('state',{...snapshot,messages:[{id:'u',role:'user',text:'<img src=x onerror=alert(1)>'},{id:'a',role:'assistant',text:'```html\n<script>alert(1)</script>\n```'}]});
- assert.equal(w.document.querySelectorAll('#messages img:not(.chat-character), #messages script').length,0);
+ assert.equal(w.document.querySelectorAll('#messages img, #messages script').length,0);
  assert.match(w.document.getElementById('messages').textContent,/<script>/);
  assert.equal(w.document.getElementById('project-label').textContent,'Project');
 });
@@ -756,23 +756,23 @@ test('file management uses labelled actions and protects unsaved editor changes'
 test('generated images appear, open full-screen, export and survive a snapshot refresh',async()=>{
  const {w,snapshot,calls}=setup();await tick();const d=w.document,id='a'.repeat(64),image={id,url:'/images/'+id,name:'robot.png',width:1024,height:1024};
  const message={id:'image-call',role:'assistant',text:'',imageStatus:'completed',images:[image]};
- w.mobileCodexEvent('state',{...snapshot,messages:[message]});assert.equal(d.querySelector('#messages img:not(.chat-character)').getAttribute('src'),image.url);
+ w.mobileCodexEvent('state',{...snapshot,messages:[message]});assert.equal(d.querySelector('#messages img').getAttribute('src'),image.url);
  d.querySelector('.image-open').click();await tick();assert.equal(d.getElementById('image-dialog').open,true);
  d.getElementById('image-save').click();await tick();assert.deepEqual(calls.find(c=>c.action==='images.export').args,{id,name:'robot.png'});
- w.mobileCodexEvent('state',{...snapshot,messages:[message]});assert.equal(d.querySelectorAll('#messages img:not(.chat-character)').length,1);
+ w.mobileCodexEvent('state',{...snapshot,messages:[message]});assert.equal(d.querySelectorAll('#messages img').length,1);
 });
 test('local Markdown images resolve via native, while arbitrary image URLs do not load',async()=>{
  const image={id:'b'.repeat(64),url:'/images/'+'b'.repeat(64),name:'local.png'};
  const {w,snapshot,calls}=setup({'images.read':()=>image});await tick();
  w.mobileCodexEvent('state',{...snapshot,messages:[{id:'a',role:'assistant',text:'- **결과** `test.md`\n\n![로봇](sandbox:/output/robot.png)\n\n![bad](https://evil.test/pixel)'}]});await tick();
- assert.equal(w.document.querySelectorAll('#messages img:not(.chat-character)').length,1);assert.equal(w.document.querySelector('#messages strong').textContent,'결과');
+ assert.equal(w.document.querySelectorAll('#messages img').length,1);assert.equal(w.document.querySelector('#messages strong').textContent,'결과');
  assert.equal(w.document.querySelector('#messages code').textContent,'test.md');assert.equal(calls.filter(c=>c.action==='images.read').length,1);
  assert.equal(C.safeImageUrl('javascript:alert(1)'),false);assert.equal(C.safeImageUrl('/images/../../auth.json'),false);
 });
 test('image generation failures are visible instead of an empty successful message',async()=>{
  const {w,snapshot}=setup();await tick();
  w.mobileCodexEvent('state',{...snapshot,messages:[{id:'image',role:'assistant',text:'',imageStatus:'failed',imageError:'이미지 사용 한도를 확인해 주세요.',images:[]}]});
- assert.match(w.document.querySelector('.image-error').textContent,/한도/);assert.equal(w.document.querySelectorAll('#messages img:not(.chat-character)').length,0);
+ assert.match(w.document.querySelector('.image-error').textContent,/한도/);assert.equal(w.document.querySelectorAll('#messages img').length,0);
 });
 
 test('separate image tool results from one turn form a gallery with correct navigation and saving',async()=>{
@@ -798,7 +798,7 @@ test('a gallery keeps partial successes, later images and failures without group
  w.mobileCodexEvent('state',{...snapshot,messages:[first,second,{id:'c',role:'assistant',kind:'image',imageGroup:'two',images:[image],imageStatus:'completed'}]});
  assert.equal(d.getElementById('image-counter').textContent,'1 / 2');assert.equal(d.querySelectorAll('#messages .image-gallery').length,2);
  w.mobileCodexEvent('state',{...snapshot,messages:[first,{...pending,imageStatus:'failed',imageError:'두 번째 이미지 실패'}]});
- assert.equal(d.querySelectorAll('#messages img:not(.chat-character)').length,1);assert.match(d.querySelector('.image-error').textContent,/두 번째/);
+ assert.equal(d.querySelectorAll('#messages img').length,1);assert.match(d.querySelector('.image-error').textContent,/두 번째/);
 });
 test('a horizontal swipe changes images but zoomed panning does not',async()=>{
  const {w,snapshot}=setup();await tick();const d=w.document;
@@ -995,62 +995,8 @@ test('clearing an override shows the newly effective base instructions without l
 });
 
 
-test('character switch hides stickers immediately, retains generated images, and persists across reload',async()=>{
- const {w,snapshot}=setup();await tick();const d=w.document, toggle=d.getElementById('chat-icons-toggle');
- const state={...snapshot,messages:[{id:'u',role:'user',text:'만들어줘'},{id:'a',role:'assistant',text:'[[icon:완료]]\n완료했어요.',images:[{id:'a'.repeat(64),url:'/images/'+'a'.repeat(64),name:'result.png'}]}]};w.mobileCodexEvent('state',state);
- assert.equal(toggle.checked,true);assert.equal(d.querySelectorAll('.message.user .chat-character').length,0);assert.match(d.querySelector('.message.assistant .chat-character').src,/06-done.png$/);
- toggle.checked=false;toggle.dispatchEvent(new w.Event('change'));await tick();assert.equal(d.querySelectorAll('.chat-character').length,0);assert.equal(d.querySelectorAll('.image-gallery img').length,1);assert.match(d.getElementById('messages').textContent,/완료했어요/);assert.doesNotMatch(d.getElementById('messages').textContent,/\[\[icon:/);
- const next=setup({}, {drafts:{'chat-icons':w.localStorage.getItem('chat-icons')}});await tick();next.w.mobileCodexEvent('state',state);assert.equal(next.w.document.querySelectorAll('.chat-character').length,0);assert.equal(next.w.document.getElementById('chat-icons-toggle').checked,false);
- toggle.checked=true;toggle.dispatchEvent(new w.Event('change'));await tick();assert.equal(d.querySelectorAll('.message.assistant .chat-character').length,1);
-});
-test('character packs hydrate from initial RPC, select, and refresh the same id when icon URLs change',async()=>{
- let revision=0; const packState=()=>({folderName:'Packs',folderConfigured:true,selectedPackId:'custom',packs:[{id:'builtin',name:'Builtin',valid:true,icons:{}},{id:'custom',name:'English pack',valid:true,icons:{done:`/packs/done-${revision}.png`}}]});
- const {w,snapshot,calls}=setup({'characters.list':()=>packState(),'characters.select':()=>({...packState(),selectedPackId:'builtin'}),'characters.refresh':()=>{revision=1;return packState();}});await tick();
- assert.ok(calls.some(call=>call.action==='characters.list')); w.mobileCodexEvent('state',{...snapshot,messages:[{id:'a',role:'assistant',text:'[[icon:완료]]\n완료했어요.'}]}); await tick(); w.document.getElementById('settings').click(); await tick();
- assert.equal(w.document.querySelectorAll('.character-pack-option').length,2); assert.ok(w.document.querySelector('.character-pack-option[aria-pressed="true"]')); assert.match(w.document.querySelector('.message .chat-character').src,/\/packs\/done-0\.png$/);
- w.document.querySelectorAll('.character-pack-option')[0].click(); await tick(); assert.equal(calls.filter(call=>call.action==='characters.select').at(-1).args.id,'builtin'); assert.match(w.document.querySelector('.message .chat-character').src,/\/chat-icons\/06-done\.png$/);
- await w.document.getElementById('character-pack-refresh').click(); await tick(); assert.equal(calls.filter(call=>call.action==='characters.refresh').length,1); assert.match(w.document.querySelector('.message .chat-character').src,/\/packs\/done-1\.png$/);
-});
-test('character pack requests expose busy state and preserve selection on cancellation',async()=>{
- let finish; const delayed=new Promise(resolve=>{finish=resolve;}); const {w,snapshot,calls}=setup({'characters.select':()=>delayed}); await tick(); const chars={folderName:'Packs',folderConfigured:true,selectedPackId:'custom',packs:[{id:'builtin',name:'Builtin',valid:true,icons:{}},{id:'custom',name:'Custom',valid:true,icons:{done:'/packs/done.png'}}]}; w.mobileCodexEvent('state',{...snapshot,characters:chars,messages:[{id:'a',role:'assistant',text:'완료했어요.'}]}); w.document.getElementById('settings').click(); await tick(); w.document.querySelector('[data-pack-id="builtin"]').click(); await tick(); assert.equal(w.document.querySelector('[data-pack-id="builtin"]').disabled,true); assert.equal(w.document.getElementById('character-pack-folder-button').disabled,true); assert.equal(w.document.querySelector('.character-pack-option[aria-pressed="true"]').dataset.packId,'custom'); finish({cancelled:true}); await tick(); assert.equal(w.document.querySelector('.character-pack-option[aria-pressed="true"]').dataset.packId,'custom'); assert.equal(w.document.querySelector('[data-pack-id="builtin"]').disabled,false); assert.equal(calls.filter(call=>call.action==='characters.select').length,1);
-});
-test('live status uses local thinking and working icons without adding transcript messages',async()=>{
- const {w,snapshot}=setup();await tick();const d=w.document;
- w.mobileCodexEvent('state',{...snapshot,busy:true,messages:[{id:'a',role:'assistant',text:'[[icon:설명]]\n설명할게요.'}]});
- assert.match(d.querySelector('#activity-character img').src,/03-thinking.png$/);const first=d.querySelector('.message .chat-character');
- w.mobileCodexEvent('message.delta',{id:'a',delta:' 이어서'});assert.equal(d.querySelector('.message .chat-character'),first);
- w.mobileCodexEvent('tool',{name:'mobile_write',path:'test.txt'});assert.match(d.querySelector('#activity-character img').src,/04-working.png$/);assert.equal(d.querySelectorAll('.message').length,1);
- w.mobileCodexEvent('state',{...snapshot,busy:false,messages:[{id:'a',role:'assistant',text:'[[icon:수정완료]]\n수정을 완료했어요.'}]});assert.equal(d.getElementById('activity').hidden,true);assert.match(d.querySelector('.message .chat-character').src,/27-fixed.png$/);
-});
-test('all character URLs resolve to bundled source bytes and cannot be arbitrary file paths',()=>{
- const dir=root+'chat-icons/',manifest=JSON.parse(fs.readFileSync(dir+'manifest.json','utf8')),hashes=JSON.parse(fs.readFileSync('tests/chat-icons-derived.sha256.json','utf8')),originals=JSON.parse(fs.readFileSync('tests/chat-icons.sha256.json','utf8'));
- const entries=Object.entries(manifest.icons);assert.equal(entries.length,32);assert.equal(fs.readdirSync(dir).filter(f=>f.endsWith('.png')).length,0);
- for(const [file,entry] of entries){const name=file.replace(/^\d+-/,'').replace(/\.png$/,'');assert.equal(C.chatIconUrl(name),'/chat-icons/'+file);assert.equal(entry.asset,file.replace(/\.png$/,'.webp'));assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync(dir+entry.asset)).digest('hex'),hashes[file]);assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync('icon-pack/gptchan/'+file)).digest('hex'),originals[file]);}
- for(const bad of ['../auth.json','https://example.test/icon.png','toString',''])assert.equal(C.chatIconUrl(bad),null);
-});
-
-test('assistant icon tags resolve exact names and semantic categories, never arbitrary paths',()=>{
- const examples={'작업중':'working','완료':'done','해냈다':'done','당황':'blocked','수정완료':'fixed',
-  '질문':'question','근거':'source','조금 애매함':'uncertain','그건안돼':'not-allowed','ㄹㅇㅋㅋ':'lol'};
- for(const [tag,name] of Object.entries(examples))assert.equal(C.chatIconForTag(tag),name,tag);
- for(const bad of ['../auth.json','unknown','toString',''])assert.equal(C.chatIconForTag(bad),null);
-});
-
-test('icons are selected by assistant tags, not guessed from ordinary reply text',async()=>{
- const {w,snapshot}=setup();await tick();const d=w.document;
- w.mobileCodexEvent('state',{...snapshot,messages:[{id:'plain',role:'assistant',text:'현재 8장이 생성됐고 7장이 저장됐습니다.'},
-  {id:'marked',role:'assistant',text:'[[icon:작업중]]\n진행하고 있어요.\n\n[[icon:완료]]'}]});
- assert.equal(d.querySelector('[data-id="plain"] .chat-character'),null);
- const marked=d.querySelector('[data-id="marked"]');
- assert.deepEqual([...marked.querySelectorAll('.chat-character')].map(image=>image.getAttribute('src')),
-  ['/chat-icons/04-working.png','/chat-icons/06-done.png']);
- assert.doesNotMatch(marked.textContent,/\[\[icon:/);
-});
-
-test('hides streamed, unknown and previous assistant tags when icons are off without altering user or code text',async()=>{
- const {w,snapshot,calls}=setup();await tick();const d=w.document,toggle=d.getElementById('chat-icons-toggle');
- toggle.checked=false;toggle.dispatchEvent(new w.Event('change'));await tick();
- assert.equal(calls.filter(call=>call.action==='chat.icons.set').at(-1).args.enabled,false);
+test('hides streamed, unknown and previous assistant tags without altering user or code text',async()=>{
+ const {w,snapshot,calls}=setup();await tick();const d=w.document;
  w.mobileCodexEvent('state',{...snapshot,busy:true,messages:[{id:'u',role:'user',text:'[[icon:완료]]'},
   {id:'a',role:'assistant',text:'[[icon:없는태그]]\n\n`[[icon:완료]]`\n\n[[icon:'}]});
  let answer=d.querySelector('[data-id="a"]');assert.equal(answer.querySelectorAll('.chat-character').length,0);
@@ -1062,20 +1008,11 @@ test('hides streamed, unknown and previous assistant tags when icons are off wit
  w.mobileCodexEvent('message.delta',{id:'a',delta:']'});answer=d.querySelector('[data-id="a"]');
  assert.equal(answer.querySelectorAll('.chat-character').length,0);
  assert.doesNotMatch(answer.textContent.replace(answer.querySelector('code').textContent,''),/\[\[icon:/);
- toggle.checked=true;toggle.dispatchEvent(new w.Event('change'));await tick();
- assert.match(answer.querySelector('.chat-character').src,/04-working\.png$/);
- assert.equal(calls.filter(call=>call.action==='chat.icons.set').at(-1).args.enabled,true);
-});
-
-test('the current icon preference is sent to the engine with each new turn',async()=>{
- const {w,calls}=setup();await tick();const d=w.document,toggle=d.getElementById('chat-icons-toggle');
- toggle.checked=false;toggle.dispatchEvent(new w.Event('change'));await tick();
- d.getElementById('prompt').value='안녕';d.getElementById('composer').dispatchEvent(new w.Event('submit',{cancelable:true}));await tick();
- assert.equal(calls.filter(call=>call.action==='chat.send').at(-1).args.chatIconsEnabled,false);
+ assert.equal(calls.some(call=>call.action==='chat.icons.set'),false);
 });
 
 test('a partial tag stays hidden when another participant becomes the last message',async()=>{
- const {w,snapshot}=setup({}, {drafts:{'chat-icons':'off'}});await tick();const d=w.document;
+ const {w,snapshot}=setup();await tick();const d=w.document;
  w.mobileCodexEvent('state',{...snapshot,busy:true,messages:[{id:'a',role:'assistant',text:'진행 중\n\n[[icon:작업중]'},
   {id:'b',role:'assistant',agent:'claude',text:'응답'}]});
  assert.doesNotMatch(d.querySelector('[data-id="a"]').textContent,/\[\[icon:/);

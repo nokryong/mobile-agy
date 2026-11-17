@@ -8,7 +8,7 @@
   const EFFORTS = {none:'None', minimal:'Minimal', low:'Light', medium:'Medium', high:'High', xhigh:'Extra High', max:'Max', ultra:'Ultra'};
   const MODES = [{id:'chat', label:'대화만'}, {id:'read', label:'프로젝트 읽기'}, {id:'write', label:'프로젝트 수정'}];
   const PROVIDER_STATE = {ready:'연결됨', missing:'CLI 설치 필요', login_required:'로그인 필요', unverified:'상태 확인 불가', unavailable:'실행 확인 필요', unsupported:'업데이트 필요', unchecked:'확인 전', installing:'설치 중…', login:'로그인 진행 중…'};
-  window.MobileCodexAgents = { init({call, getState, toast, show, close, closeAddMenu, closeFilePanel, openAccounts, openLinuxSettings, usageGauge, usageTime, getCharacters, characterIcon}) {
+  window.MobileCodexAgents = { init({call, getState, toast, show, close, closeAddMenu, closeFilePanel, openAccounts, openLinuxSettings, usageGauge, usageTime}) {
     const t = window.MobileCodexLocale?.t || (text => text);
     const $ = id => document.getElementById(id);
     const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
@@ -59,11 +59,7 @@
       return 'idle';
     }
     const STATUS_LABEL = {responding:'응답 중', working:'작업 중', waiting:'작업 차례 대기', approval:'승인 대기', queued:'차례 대기', idle:'대기'};
-    /** A usable character pack by id, or null for the letter avatar. */
-    const characterPack = id => id ? (getCharacters()?.packs || []).find(p => p.id === id && p.valid !== false) || null : null;
-    function avatar(id, name, character = '') {
-      const pack = characterPack(character);
-      if (pack) { const img = characterIcon('idle', 'agent-avatar agent-avatar-image', pack); img.dataset.agent = id; return img; }
+    function avatar(id, name) {
       const a = el('span', name.slice(0, 1), 'agent-avatar'); a.dataset.agent = id; a.setAttribute('aria-hidden', 'true'); return a;
     }
     function codexSettings() {
@@ -107,29 +103,26 @@
       effort.onchange = () => setAgents([{id:agent.id, effort:effort.value}]);
       mode.onchange = () => { approval.disabled = mode.value !== 'write'; return setAgents([{id:agent.id, mode:mode.value}]); };
       const remove = btn(t('대화에서 내보내기'), () => setAgents([{id:agent.id, enabled:false}]), 'secondary-button agent-remove');
-      const packs = (getCharacters()?.packs || []).filter(p => p.valid !== false);
-      const character = select([{id:'', label:t('글자 아이콘')}, ...packs.map(p => ({id:p.id, label:p.name || p.id}))], agent.character || '', agent.name + ' ' + t('캐릭터'));
-      character.onchange = () => setAgents([{id:agent.id, character:character.value}]);
-      box.append(field(t('권한'), mode), field(t('승인 방식'), approval), field(t('캐릭터'), character));
+      box.append(field(t('권한'), mode), field(t('승인 방식'), approval));
       if (info.state && info.state !== 'ready') box.append(el('p', t(PROVIDER_STATE[info.state] || '확인 전') + (info.reason ? ' · ' + info.reason : ''), 'agent-warning'), btn(t('계정 연결'), openAccounts));
 
       return box;
     }
-    function card(id, name, detail, settings, character = '') {
+    function card(id, name, detail, settings) {
       const section = el('section', null, 'agent-card'), current = status(id);
       section.dataset.agent = id; section.dataset.status = current;
       const row = el('button', null, 'agent-row'); row.type = 'button'; row.setAttribute('aria-expanded', String(expanded.has(id)));
       const copy = el('span', null, 'agent-copy'); copy.append(el('strong', name), el('small', [t(STATUS_LABEL[current]), detail].filter(Boolean).join(' · ')));
       const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
       use.setAttribute('href', '#i-down'); chevron.append(use); chevron.setAttribute('class', 'agent-chevron'); chevron.setAttribute('aria-hidden', 'true');
-      row.append(avatar(id, name, character), copy, chevron);
+      row.append(avatar(id, name), copy, chevron);
       row.onclick = () => { if (expanded.has(id)) expanded.delete(id); else expanded.add(id); panelSignature = ''; renderPanel(); };
       section.append(row); if (expanded.has(id)) section.append(settings());
       return section;
     }
     function renderAvatars() {
       const target = $('agents-avatars'); if (!target) return;
-      target.replaceChildren(...agents().map(a => avatar(a.id, a.name, a.character)));
+      target.replaceChildren(...agents().map(a => avatar(a.id, a.name)));
       $('agents-toggle').classList.toggle('grouped', agents().length > 0);
     }
     function renderPanel() {
@@ -142,7 +135,7 @@
       panelSignature = signature;
       const modelName = id => (state.models || []).find(m => (m.model || m.id) === id)?.displayName || id;
       const list = [];
-      for (const agent of agents()) list.push(card(agent.id, agent.name, agent.model || t(PROVIDER_STATE[cap(agent.id).state] || '확인 전'), () => agentSettings(agent), agent.character));
+      for (const agent of agents()) list.push(card(agent.id, agent.name, agent.model || t(PROVIDER_STATE[cap(agent.id).state] || '확인 전'), () => agentSettings(agent)));
       $('agents-list').replaceChildren(...list);
       $('agents-invite').disabled = AGENTS.every(a => agents().some(x => x.id === a.id));
     }

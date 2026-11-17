@@ -21,8 +21,6 @@
   const handledReceipts = new Set(), handledVoiceReceipts = new Set();
   let dictationState = {phase:'idle'}, dictationTimer = null;
   let voiceStarting = false, voiceActive = false, voiceRecoveryGeneration = 0;
-  let chatIconsEnabled = localStorage.getItem('chat-icons') !== 'off', activityIcon = 'thinking';
-  let characterState = {folderName:'', folderConfigured:false, selectedPackId:'builtin', packs:[{id:'builtin',name:'Builtin',valid:true,icons:{}}]};
   let instructionsOriginal = '', instructionsLoaded = false, instructionsSaving = false, devtoolsCheckResult = null, devtoolsCheckSummary = '', devtoolsChecking = false, usageLoading = false, accountActionStatus = {text:'', error:false};
   let resetCredits = null, resetCreditBusy = false, resetCreditScope = '', resetCreditIdempotencyKey = '', resetCreditSelectedId = '', usageGeneration = 0;
   const toolCache = [null, null, null];
@@ -60,7 +58,7 @@
   }
 
   function ensureNotificationSettings() {
-    const toggle = $('chat-icons-toggle')?.closest('.settings-row');
+    const toggle = $('theme')?.closest('.settings-row');
     if (!toggle) return;
     const make = (id, title, description) => { const row = node('div', null, 'settings-row'), copy = node('span'), strong = node('strong', title), small = node('small', description), label = node('label', null, 'toggle-switch'), input = node('input'); input.id = id; input.type = 'checkbox'; input.setAttribute('role', 'switch'); input.checked = localStorage.getItem(id) !== 'off'; input.addEventListener('change', () => { try { localStorage.setItem(id, input.checked ? 'on' : 'off'); } catch {} call('notifications.configure', {enabled: $('notifications-toggle')?.checked !== false, vibration: $('notification-vibration-toggle')?.checked !== false}).catch(error => toast(error.message)); }); label.append(input, node('span', null, 'toggle-track')); copy.append(strong, small); row.append(copy, label); return row; };
     const parent = toggle.parentElement;
@@ -84,50 +82,6 @@
     window.refreshNotificationSettings = refreshNotificationSettings;
     refreshNotificationSettings();
   }
-  function characterPack(value) { const packs = Array.isArray(value?.packs) ? value.packs : characterState.packs; return packs.find(pack => pack.id === (value?.selectedPackId || characterState.selectedPackId)) || packs.find(pack => pack.id === 'builtin') || packs[0]; }
-  function characterVisualKey() { const pack = characterPack(); return characterState.selectedPackId + ':' + JSON.stringify(pack?.icons || {}); }
-  function characterErrorText(error) { const text = String(error || ''); for (const prefix of ['아이콘이 없습니다: ', '지원하지 않는 이미지입니다: ']) if (text.startsWith(prefix)) return t(prefix) + text.slice(prefix.length); return t(text); }
-  function characterPackName(pack) { return pack?.id === 'builtin' ? t('기본 캐릭터') : (pack?.name || pack?.id || ''); }
-  function characterIconUrl(name, pack = characterPack()) { return pack?.icons?.[name] || C.chatIconUrl(name) || C.chatIconUrl('explaining'); }
-  function setCharacterState(value) { const next = value?.characters || value; if (!next || !Array.isArray(next.packs)) return; characterState = {...characterState, ...next}; renderCharacterPacks(); }
-  function characterIcon(name, cls = '', pack = null) {
-    const img = node('img', null, 'chat-character ' + cls); img.src = characterIconUrl(name, pack || undefined); img.alt = ''; img.setAttribute('aria-hidden', 'true'); img.width = 96; img.height = 96; img.loading = 'lazy'; img.decoding = 'async';
-    img.addEventListener('error', () => { if (img.dataset.fallback) { img.hidden = true; return; } img.dataset.fallback = 'builtin'; img.src = C.chatIconUrl(name) || C.chatIconUrl('explaining'); });
-    return img;
-  }
-  function ensureCharacterPackUi() {
-    if ($('character-pack-card')) return;
-    const toggle = $('chat-icons-toggle')?.closest('.settings-row'); if (!toggle) return;
-    const card = node('section', null, 'character-pack-card'); card.id = 'character-pack-card';
-    const head = node('div', null, 'settings-row'), copy = node('span'), folderLabel = node('small', '', 'character-pack-folder'); folderLabel.id = 'character-pack-folder'; copy.append(node('strong', t('캐릭터 팩')), folderLabel); const refresh = button(t('새로고침'), refreshCharacterPacks, 'secondary-button'); refresh.id = 'character-pack-refresh'; refresh.dataset.restoreFocus = 'true'; refresh.setAttribute('aria-label', t('캐릭터 팩 새로고침')); head.append(copy, refresh);
-    const actions = node('div', null, 'character-pack-actions'); const choose = button(t('폴더 선택'), chooseCharacterPackFolder, 'secondary-button'); choose.id = 'character-pack-folder-button'; const change = button(t('폴더 변경'), chooseCharacterPackFolder, 'secondary-button'); change.id = 'character-pack-change'; actions.append(choose, change);
-    const status = node('p', '', 'muted'); status.id = 'character-pack-status'; status.setAttribute('role','status'); const list = node('div', null, 'character-pack-list'); list.id = 'character-pack-list'; card.append(head, actions, status, list); toggle.after(card);
-  }
-  function renderCharacterPacks() {
-    ensureCharacterPackUi(); const card = $('character-pack-card'); if (!card) return;
-    const folder = $('character-pack-folder'), status = $('character-pack-status'), list = $('character-pack-list'); folder.textContent = characterState.folderName || t('기본 캐릭터'); status.textContent = characterErrorText(characterState.error) || (characterState.loading ? t('캐릭터 팩을 불러오는 중…') : (characterState.folderConfigured ? t('캐릭터 팩 폴더가 연결되었습니다.') : '')); $('character-pack-change').hidden = !characterState.folderConfigured; $('character-pack-folder-button').hidden = characterState.folderConfigured; $('character-pack-folder-button').disabled = !!characterState.loading; $('character-pack-refresh').disabled = !!characterState.loading; $('character-pack-change').disabled = !!characterState.loading;
-    list.replaceChildren(); const packs = characterState.packs || []; if (characterState.folderConfigured && packs.length <= 1) { list.append(node('p', t('폴더 안에 팩 폴더와 mapping.json, 32개 PNG를 넣어 주세요.'), 'empty-note')); }
-    for (const pack of packs) { const row = button('', () => selectCharacterPack(pack.id), 'character-pack-option'); row.dataset.packId = pack.id; row.disabled = !pack.valid || !!characterState.loading; const displayName = characterPackName(pack); row.setAttribute('aria-label', t('캐릭터 팩 선택') + ': ' + displayName); row.setAttribute('aria-pressed', String(pack.id === characterState.selectedPackId)); const preview = node('span', null, 'character-pack-preview'); for (const name of C.chatIconNames().slice(0, 3)) { const image = characterIcon(name, 'character-pack-icon', pack); image.classList.remove('chat-character'); preview.append(image); } const info = node('span', null, 'character-pack-info'); info.append(node('strong', displayName), node('small', pack.valid ? t('32개 상태') : (characterErrorText(pack.error) || t('사용할 수 없음')))); row.append(preview, info, node('span', pack.id === characterState.selectedPackId ? '✓' : '', 'character-pack-check')); list.append(row); }
-  }
-  let characterListRequest = null;
-  async function loadCharacterPacks() {
-    if (characterListRequest || characterState.loading) return characterListRequest;
-    characterListRequest = characterRequest('characters.list').finally(() => { characterListRequest = null; });
-    return characterListRequest;
-  }
-  async function characterRequest(action, args) {
-    if (characterState.loading) return;
-    const focusedPack = document.activeElement?.dataset?.packId || '';
-    characterState = {...characterState, loading:true, error:''}; renderCharacterPacks();
-    try {
-      const result = await call(action, args);
-      if (!result?.cancelled) { setCharacterState(result); renderDraftContext(); drawStatusIcons(); drawMessages(); }
-    } catch (error) { characterState = {...characterState, error:error.message}; }
-    finally { characterState = {...characterState, loading:false}; renderCharacterPacks(); const row = focusedPack && document.querySelector(`[data-pack-id="${CSS.escape(focusedPack)}"]`); if (row) row.focus(); }
-  }
-  async function chooseCharacterPackFolder() { return characterRequest('characters.chooseFolder'); }
-  async function refreshCharacterPacks() { return characterRequest('characters.refresh'); }
-  async function selectCharacterPack(id) { return characterRequest('characters.select', {id}); }
   function show(id) {
     sidebar(false);
     if (!$(id).open) { dialogs.push(id); $(id).showModal(); }
@@ -891,7 +845,7 @@
       else renderProseLines(target, block.content);
     }
   }
-  function renderMessageIconTags(target, pack, previousIcons, streaming) {
+  function removeLegacyIconTags(target, streaming) {
     // Replace only assistant prose. Code examples and user messages retain their literal text.
     const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
     const nodes = [];
@@ -909,14 +863,6 @@
       while ((match = pattern.exec(text))) {
         changed = true;
         fragment.append(document.createTextNode(text.slice(cursor, match.index)));
-        const iconName = match[1] === undefined ? null : C.chatIconForTag(match[1]);
-        if (chatIconsEnabled && iconName) {
-          const url = characterIconUrl(iconName, pack || undefined);
-          const oldIndex = previousIcons.findIndex(image => image.dataset.messageIconKey === iconName && image.getAttribute('src') === url);
-          const image = oldIndex < 0 ? characterIcon(iconName, '', pack) : previousIcons.splice(oldIndex, 1)[0];
-          image.dataset.messageIconKey = iconName;
-          fragment.append(image);
-        }
         cursor = match.index + match[0].length;
       }
       if (changed) {
@@ -928,20 +874,6 @@
       if (!paragraph.textContent.trim() && !paragraph.querySelector('img,button')) paragraph.remove();
     }
   }
-  function drawStatusIcons() {
-    for (const [id, name] of [['welcome-character','greeting'], ['activity-character',activityIcon]]) {
-      const host = $(id); host.hidden = !chatIconsEnabled;
-      if (!chatIconsEnabled) host.replaceChildren();
-      else if (host.dataset.icon !== name || host.dataset.pack !== characterVisualKey() || !host.firstChild) { host.replaceChildren(characterIcon(name)); host.dataset.icon = name; host.dataset.pack = characterVisualKey(); }
-    }
-  }
-  function setChatIcons() {
-    chatIconsEnabled = $('chat-icons-toggle').checked;
-    try { localStorage.setItem('chat-icons', chatIconsEnabled ? 'on' : 'off'); } catch { toast(t('아이콘 설정을 저장하지 못했습니다.')); }
-    drawStatusIcons(); drawMessages();
-    syncChatIcons();
-  }
-  function syncChatIcons() { call('chat.icons.set', {enabled:chatIconsEnabled}).catch(() => {}); }
   function historyStatus(message = '') {
     let status = $('history-status');
     if (!status) { status = node('p', '', 'history-status'); status.id = 'history-status'; status.setAttribute('role','status'); $('messages').before(status); }
@@ -1011,13 +943,9 @@
     time.dateTime = date.toISOString(); time.title = date.toLocaleString(L.language());
     time.setAttribute('aria-label', time.title); return time;
   }
-  function agentCharacter(id) {
-    const chosen = (state.agents || []).find(a => a.id === id)?.character;
-    return chosen ? characterState.packs.find(p => p.id === chosen && p.valid !== false) || null : null;
-  }
   function agentSpeaker(m) {
     const name = m.agent ? (m.agentName || m.agent) : 'Antigravity', label = node('div', null, 'agent-speaker');
-    const avatar = node('span', name.slice(0, 1), 'agent-avatar'); avatar.dataset.agent = m.agent || 'codex'; avatar.setAttribute('aria-hidden', 'true');
+    const avatar = node('span', name.slice(0, 1), 'agent-avatar'); avatar.dataset.agent = m.agent || 'gemini'; avatar.setAttribute('aria-hidden', 'true');
     label.append(avatar, node('strong', name)); return label;
   }
   function drawMessages() {
@@ -1034,9 +962,8 @@
       previous = el;
       el.classList.toggle('pro-consultation-message', m.kind === 'proConsultation');
       el.classList.toggle('agent-message', !!m.agent);
-      const agentPack = m.agent ? agentCharacter(m.agent) : null;
       const streaming = m.status === 'streaming' || (state.busy && m.id === messages[messages.length - 1]?.id);
-      const signature = JSON.stringify([m.agent, m.agentName, agentPack?.id, grouped, m.text, m.kind, m.prompt, m.createdAt, m.status, m.source, m.backend, m.displayModel, m.error, m.images, m.attachments, m.imageStatus, m.imageError, L.language(), chatIconsEnabled, streaming, characterVisualKey()]);
+      const signature = JSON.stringify([m.agent, m.agentName, grouped, m.text, m.kind, m.prompt, m.createdAt, m.status, m.source, m.backend, m.displayModel, m.error, m.images, m.attachments, m.imageStatus, m.imageError, L.language(), streaming]);
       if (el.dataset.signature !== signature) {
         el.dataset.signature = signature;
         if (m.role === 'user') {
@@ -1049,9 +976,8 @@
           if (['not_sent','uncertain','failed'].includes(m.status)) el.append(node('p', m.status === 'uncertain' ? t('전송 상태를 확인해야 합니다. 같은 메시지를 다시 보내기 전에 ChatGPT 웹 대화를 확인하세요.') : (m.error || t('보내지 못했습니다.')), 'message-transport-status'));
         }
         else {
-          const previousIcons = [...el.querySelectorAll('.chat-character[data-message-icon-key]')];
           prose(el, m.text || '');
-          renderMessageIconTags(el, agentPack, previousIcons, streaming);
+          removeLegacyIconTags(el, streaming);
           if (m.kind === 'proConsultation') {
             const status = {completed:t('검토 완료'),failed:t('검토 실패'),cancelled:t('검토 취소됨'),timeout:t('검토 시간 초과')}[m.status];
             el.prepend(node('span', t('Pro 검토 답변'), 'message-source-badge'));
@@ -1441,7 +1367,7 @@
     const changedFileContext = fileWorkspaceScope(state) !== fileWorkspaceScope(next);
     if (changedFileContext) resetFileContext();
     setDraftScope(next); state = historySnapshot(next, changedThread);
-    state.models ||= []; state.messages ||= []; state.projects ||= []; state.accounts ||= []; state.workspace ||= {}; state.account ||= {}; state.rateLimits ||= {}; setCharacterState(state.characters);
+    state.models ||= []; state.messages ||= []; state.projects ||= []; state.accounts ||= []; state.workspace ||= {}; state.account ||= {}; state.rateLimits ||= {};
     const logged = state.authState === 'signed_in', selected = state.workspace.selected;
     const name = selected ? state.workspace.name : t('일반 대화');
     $('project-label').textContent = workspaceFolderLabel(); $('context-folder').textContent = workspaceFolderLabel(); $('header-project').textContent = name;
@@ -1464,8 +1390,6 @@
     if (changedThread || !anyBusy)
       $('activity-text').textContent = state.proBusy ? t('Pro 답변 중') : t('Antigravity 답변 기다리는 중');
     if (state.proBusy) $('activity-text').textContent = t('Pro 답변 중');
-    if (!anyBusy) activityIcon = 'thinking';
-    drawStatusIcons();
     $('terminal-cwd').textContent = state.cwd || '';
     if (state.terminal) renderTerminal(state.terminal);
     $('storage-status').textContent = state.directWorkspace ? t('선택한 폴더에서 셸 명령을 실행합니다.') : t('폴더의 셸 접근은 기기 파일 권한이 필요합니다. 문서 제공자 폴더는 파일 도구로 접근합니다.');
@@ -2115,7 +2039,7 @@
     else if (name === 'error') { if (!data.threadId || data.threadId === state.threadId) toast(data.message); }
     else if (name === 'notice') toast(data.message);
     else if (name === 'message.delta') { if (data.threadId && data.threadId !== state.threadId) return; C.appendDelta(state.messages, data.id, data.delta); drawMessages(); }
-    else if (name === 'tool') { if (data.threadId && data.threadId !== state.threadId) return; activityIcon = /read|list|search/.test(data.name) ? 'inspecting' : 'working'; drawStatusIcons(); $('activity-text').textContent = data.name.replace('mobile_', '') + ' · ' + data.path; logEvent(data.name, data); }
+    else if (name === 'tool') { if (data.threadId && data.threadId !== state.threadId) return; $('activity-text').textContent = data.name.replace('mobile_', '') + ' · ' + data.path; logEvent(data.name, data); }
     else if (name === 'agent.event') { if (data.threadId && data.threadId !== state.threadId) return; if (!data.method.endsWith('/delta')) logEvent(data.method, data.params); if (data.method === 'turn/diff/updated') logEvent(t('변경 사항'), data.params.diff); }
     else if (name === 'files.changed' && (!data.threadId || data.threadId === state.threadId) && !$('file-panel').hidden) listFiles().catch(e => toast(e.message));
     else if (name === 'updates.changed') drawUpdates(data);
@@ -2241,7 +2165,7 @@
     closeComposerAddMenu(false);
     saveDraft(); updateSend(); scrollLatest();
     try {
-      await call(steer ? 'chat.steer' : 'chat.send', {text, expectedTurnId, expectedThreadId, workspaceKey, model:$('model').value, effort:$('effort').value, chatIconsEnabled,
+      await call(steer ? 'chat.steer' : 'chat.send', {text, expectedTurnId, expectedThreadId, workspaceKey, model:$('model').value, effort:$('effort').value,
         ...(!steer ? {fastMode:!!fastTier() && draftOptions.fastMode === true} : {}),
         attachments:submitted.context.attachments.map(x => x.id), skills:submitted.context.skills, mentions:submitted.context.mentions});
       // Keep text typed during the request, or drafts from a different conversation.
@@ -2342,9 +2266,9 @@
   on('permissions', () => setPermissionMode($('permissions').value), 'change');
   on('approval-mode', () => setApprovalMode($('approval-mode').value), 'change');
   document.querySelectorAll('input[name="permission"]').forEach(r => r.addEventListener('change', () => setPermissionMode(r.value).catch(error => toast(error.message))));
-  ensureCharacterPackUi(); ensureNotificationSettings();
+  ensureNotificationSettings();
   selectSettingsTab('general');
-  on('connect', () => startLogin(false)); on('account-button', openAccountSettings); on('settings', () => { ensureCharacterPackUi(); ensureNotificationSettings(); show('settings-dialog'); sidebar(false); if (document.querySelector('[data-settings-tab="account"].active')) agentUi?.refreshProviders(); if (!characterState.folderConfigured && characterState.packs.length <= 1) loadCharacterPacks(); });
+  on('connect', () => startLogin(false)); on('account-button', openAccountSettings); on('settings', () => { ensureNotificationSettings(); show('settings-dialog'); sidebar(false); if (document.querySelector('[data-settings-tab="account"].active')) agentUi?.refreshProviders(); });
   document.querySelectorAll('[data-settings-tab]').forEach(tab => tab.addEventListener('click', () => {
     const selected = tab.dataset.settingsTab; selectSettingsTab(selected);
     if (selected === 'personal' && !instructionsLoaded) loadInstructions();
@@ -2376,8 +2300,6 @@
     if (!$('file-panel').hidden) await listFiles();
     if ($('tools-dialog').open) await loadTools(false);
   }, 'change');
-  on('chat-icons-toggle', setChatIcons, 'change');
-  $('chat-icons-toggle').checked = chatIconsEnabled; drawStatusIcons(); syncChatIcons();
   on('instructions-reload', loadInstructions); on('instructions-save', saveInstructions);
   $('settings-dialog').addEventListener('cancel', event => { event.preventDefault(); dismiss('settings-dialog'); });
   on('storage-access', () => call('ui.storageAccess')); on('theme', setTheme, 'change');
@@ -2454,8 +2376,8 @@
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
   const resetCreditPanel = $('reset-credits');
-  agentUi = window.MobileCodexAgents?.init({call, getState:()=>state, toast, show, close, closeAddMenu:()=>closeComposerAddMenu(false), closeFilePanel:()=>setFilePanelOpen(false), openAccounts:openAccountSettings, usageGauge, usageTime, getCharacters:()=>characterState, characterIcon, openLinuxSettings:()=>{ensureLinuxUi();selectSettingsTab('tools');show('settings-dialog');refreshLinuxStatus();$('linux-environment-card')?.scrollIntoView({block:'start'});}});
+  agentUi = window.MobileCodexAgents?.init({call, getState:()=>state, toast, show, close, closeAddMenu:()=>closeComposerAddMenu(false), closeFilePanel:()=>setFilePanelOpen(false), openAccounts:openAccountSettings, usageGauge, usageTime, openLinuxSettings:()=>{ensureLinuxUi();selectSettingsTab('tools');show('settings-dialog');refreshLinuxStatus();$('linux-environment-card')?.scrollIntoView({block:'start'});}});
   $('usage-limits').after(resetCreditPanel);
   viewportChanged();
-  call('state').then(async initial => { render(initial); loadCharacterPacks(); recoverVoiceInput(); loadUpdates(); if (initial.linux?.enabled) agentUi?.refreshProviders(); try { acceptPickedAttachments(await call('attachments.recover'), ''); } catch {} }).catch(e => toast(e.message));
+  call('state').then(async initial => { render(initial); recoverVoiceInput(); loadUpdates(); if (initial.linux?.enabled) agentUi?.refreshProviders(); try { acceptPickedAttachments(await call('attachments.recover'), ''); } catch {} }).catch(e => toast(e.message));
 })();

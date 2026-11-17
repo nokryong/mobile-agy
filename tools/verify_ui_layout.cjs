@@ -31,7 +31,7 @@ async function open(browser, width, height, theme='light', language='en', extra=
   return route.fulfill({path:file});
  });
  await page.addInitScript(({snapshot,theme,language})=>{
-  localStorage.setItem('chat-icons','off');localStorage.setItem('theme',theme);
+  localStorage.setItem('theme',theme);
   window.fixtureSnapshot=snapshot;
   window.fixtureCalls=[];
   window.Native={locale:()=>JSON.stringify({choice:language,systemLanguage:language}),postMessage(raw){

@@ -15,7 +15,7 @@ import static org.junit.Assert.*;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 29, application = Application.class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-public class ChatIconAssetTest {
+public class PackagedUiAssetTest {
     @Test public void everyStylesheetAndScriptLinkedFromThePagePassesTheWebViewRoute() throws Exception {
         AssetManager assets = RuntimeEnvironment.getApplication().getAssets();
         String html;
@@ -53,45 +53,18 @@ public class ChatIconAssetTest {
         }
     }
 
-    @Test public void all32PackagedIconsPassTheWebViewRouteAndOpen() throws Exception {
-        AssetManager assets = RuntimeEnvironment.getApplication().getAssets();
-        java.util.Map<String,String> names = BuiltinIcons.files(assets);
-        assertEquals(32, names.size());
-        for (String name : names.keySet()) {
-            assertTrue(name, MainActivity.isChatIconPath("/chat-icons/" + name));
-            WebResourceResponse response = BuiltinIcons.response(assets,name);
-            assertEquals("image/webp",response.getMimeType());
-            try (java.io.InputStream input = response.getData()) {
-                byte[] bytes=input.readAllBytes();
-                assertEquals("RIFF",new String(bytes,0,4,java.nio.charset.StandardCharsets.US_ASCII));
-                assertEquals("WEBP",new String(bytes,8,4,java.nio.charset.StandardCharsets.US_ASCII));
-                android.graphics.BitmapFactory.Options bounds=new android.graphics.BitmapFactory.Options();bounds.inJustDecodeBounds=true;
-                android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.length,bounds);
-                assertTrue(bounds.outWidth>0);assertTrue(bounds.outHeight>0);
-            }
-        }
-        assertThrows(java.io.IOException.class,()->BuiltinIcons.response(assets,"../auth.json"));
-    }
-
-    @Test public void iconRouteRejectsTraversalAndNonPngPaths() {
-        for (String path : new String[]{null,"/chat-icons/../auth.json","/chat-icons/23-not-allowed.png/extra",
-                "/chat-icons/23-not-allowed.svg","/chat-icons/23-not--allowed.png","/other/23-not-allowed.png"}) {
-            assertFalse(String.valueOf(path), MainActivity.isChatIconPath(path));
-        }
-    }
-
     @Test public void packagedLogoPassesTheWebViewRouteAndOpens() throws Exception {
         AssetManager assets = RuntimeEnvironment.getApplication().getAssets();
         WebResourceResponse response = MainActivity.packagedLogoResponse(assets,
-            Uri.parse("https://appassets.androidplatform.net/codex-logo.png"));
+            Uri.parse("https://appassets.androidplatform.net/agy-logo.png"));
         assertEquals(200, response.getStatusCode());
         assertEquals("image/png", response.getMimeType());
-        assertArrayEquals("codex-logo.png", new byte[]{(byte)137,80,78,71,13,10,26,10}, response.getData().readNBytes(8));
+        assertArrayEquals("agy-logo.png", new byte[]{(byte)137,80,78,71,13,10,26,10}, response.getData().readNBytes(8));
         for (String url : new String[]{
-                "https://appassets.androidplatform.net/codex-logo.png/extra",
+                "https://appassets.androidplatform.net/agy-logo.png/extra",
                 "https://appassets.androidplatform.net/logo.png",
-                "http://appassets.androidplatform.net/codex-logo.png",
-                "https://evil.example/codex-logo.png"}) {
+                "http://appassets.androidplatform.net/agy-logo.png",
+                "https://evil.example/agy-logo.png"}) {
             WebResourceResponse denied = MainActivity.packagedLogoResponse(assets, Uri.parse(url));
             assertEquals(url, 403, denied.getStatusCode());
         }
