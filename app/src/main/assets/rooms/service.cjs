@@ -12,7 +12,7 @@ const host=(method,params)=>new Promise((resolve,reject)=>{
   write({id,method:'host.'+method,params});
 });
 const root=process.argv[2];
-const providers={claude:new CliProvider('claude',{root,host,emit}),agy:new CliProvider('agy',{root,host,emit})};
+const providers={agy:new CliProvider('agy',{root,host,emit})};
 const runs=new Map();
 let providerChecks=Promise.resolve();
 
@@ -82,7 +82,7 @@ function shutdown(detached=false){
   if(detached){closed=true;for(const callback of pending.values())callback.reject(new Error('Android 연결이 종료되었습니다.'));pending.clear();}
   if(shutdownTask)return shutdownTask;
   shuttingDown=true;for(const controller of runs.values())controller.abort();
-  shutdownTask=Promise.allSettled([providers.claude.dispose(),providers.agy.dispose()]);return shutdownTask;
+  shutdownTask=Promise.allSettled(Object.values(providers).map(provider=>provider.dispose()));return shutdownTask;
 }
 const detach=()=>shutdown(true).finally(()=>process.exit());
 process.stdin.once('end',detach);process.once('SIGTERM',detach);process.once('SIGINT',detach);

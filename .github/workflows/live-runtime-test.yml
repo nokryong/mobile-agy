@@ -1,12 +1,7 @@
 name: Private Live runtime build
 on:
-  push:
-    branches: [codex/live-voice-test]
-    paths:
-      - '.github/workflows/live-runtime-test.yml'
-      - 'tools/runtime-patches/**'
-      - 'tools/package_live_runtime.py'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:

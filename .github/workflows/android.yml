@@ -1,14 +1,7 @@
 name: Android APK
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
-    inputs:
-      apk_only:
-        description: 'Test APK after UI/source checks (no publication or Android lint/unit suites)'
-        type: boolean
-        default: false
+
 permissions:
   contents: read
   actions: read

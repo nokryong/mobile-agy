@@ -2,9 +2,8 @@ name: Codex runtime update
 # Daily: pin the newest @mmmbuto/codex-cli-termux release and open a pull request.
 # Nothing merges automatically; the test APK build runs on the PR branch.
 on:
-  schedule:
-    - cron: '41 21 * * *'
   workflow_dispatch:
+
 permissions:
   contents: write
   pull-requests: write

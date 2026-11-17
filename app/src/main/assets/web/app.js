@@ -1441,7 +1441,7 @@
   }
   function renderPhone() {
     const phone = state.phone || {};
-    $('phone-status').textContent = phone.status || t('접근성 설정에서 Mobile Codex 휴대폰 제어를 켜 주세요.');
+    $('phone-status').textContent = phone.status || t('접근성 설정에서 Mobile-agy 휴대폰 제어를 켜 주세요.');
     $('phone-enable').disabled = !phone.connected || !!phone.enabled; $('floating-chat').disabled = !phone.connected;
     $('phone-enable').hidden = !!phone.enabled;
     $('phone-disable').hidden = !phone.enabled;
@@ -1466,7 +1466,7 @@
     if (changedFileContext) resetFileContext();
     setDraftScope(next); state = historySnapshot(next, changedThread);
     state.models ||= []; state.messages ||= []; state.projects ||= []; state.accounts ||= []; state.workspace ||= {}; state.account ||= {}; state.rateLimits ||= {}; setCharacterState(state.characters);
-    const logged = C.isLoggedIn(state.account), selected = state.workspace.selected;
+    const logged = state.authState === 'signed_in', selected = state.workspace.selected;
     const name = selected ? state.workspace.name : t('일반 대화');
     $('project-label').textContent = workspaceFolderLabel(); $('context-folder').textContent = workspaceFolderLabel(); $('header-project').textContent = name;
     $('header-title').textContent = (state.sessions || []).find(s => s.id === state.threadId)?.title || t('새 대화');
@@ -1481,12 +1481,12 @@
     $('settings-status').textContent = state.status; $('settings-indicator').textContent = state.ready ? t('연결됨') : t('연결 안 됨'); $('settings-indicator').classList.toggle('online', !!state.ready);
     const pendingDeletes = Number(state.pendingDeletionCount) || 0;
     $('pending-deletions').hidden = pendingDeletes === 0;
-    $('pending-deletions').textContent = pendingDeletes ? t('원본 삭제 대기 {count}건. 아래 ‘Codex 시작 / 다시 연결’을 누르면 다시 시도합니다.', {count:pendingDeletes}) : '';
+    $('pending-deletions').textContent = pendingDeletes ? t('원본 삭제 대기 {count}건. 아래 ‘Antigravity 상태 새로고침’을 누르면 다시 시도합니다.', {count:pendingDeletes}) : '';
     const anyBusy = !!state.busy || !!state.proBusy;
     $('send').hidden = false; $('stop').hidden = !anyBusy; $('activity').hidden = !anyBusy;
     updateComposerExpansion();
     if (changedThread || !anyBusy)
-      $('activity-text').textContent = state.proBusy ? t('Pro 답변 중') : t('Codex 답변 기다리는 중');
+      $('activity-text').textContent = state.proBusy ? t('Pro 답변 중') : t('Antigravity 답변 기다리는 중');
     if (state.proBusy) $('activity-text').textContent = t('Pro 답변 중');
     if (!anyBusy) activityIcon = 'thinking';
     drawStatusIcons();
@@ -1525,7 +1525,7 @@
     updateSend(); optionsSummary(); drawUpdates(updateState);
     drawMessages();
     agentUi?.render();
-    $('prompt').placeholder = agentUi?.grouped() ? t('모두에게 보내기 · @로 한 명만 부르기') : t('Codex에게 물어보기');
+    $('prompt').placeholder = 'Antigravity에게 물어보기';
     // A request can arrive while another conversation is visible. Once the
     // selected session is restored, show only that session's pending request.
     nextRequest();
@@ -1538,12 +1538,7 @@
     while ($('event-log').children.length > 150) $('event-log').firstChild.remove();
   }
   async function startLogin(add = false) {
-    if (C.isLoggedIn(state.account) && !add) return openAccountSettings();
-    if (!add && !accountNeedsLogin()) return openAccountSettings();
-    show('login-dialog'); $('device-code').textContent = t('연결 준비 중'); $('open-login').disabled = true;
-    login = await call(add ? 'auth.add' : 'auth.login');
-    if (!C.safeLoginUrl(login.verificationUrl)) throw new Error(t('잘못된 로그인 응답입니다.'));
-    $('device-code').textContent = login.userCode; $('open-login').disabled = false;
+    return openAccountSettings();
   }
   function fileWorkspaceScope(snapshot = state) {
     return JSON.stringify([accountScope(snapshot.account), snapshot.workspace?.key || '', !!snapshot.workspace?.selected, snapshot.workspace?.available !== false, snapshot.cwd || '']);
@@ -1945,24 +1940,7 @@
   }
   function openAccountSettings() { selectSettingsTab('account'); show('settings-dialog'); sidebar(false); loadUsage(); }
   async function loadUsage() {
-    if (usageLoading || resetCreditBusy) return;
-    const status = $('usage-status'), target = $('usage-limits');
-    if (accountNeedsLogin()) { status.textContent = t('로그인 후 사용 한도를 조회할 수 있습니다.'); target.replaceChildren(); resetCredits = null; renderResetCredits(); return; }
-    usageLoading = true; $('usage-refresh').disabled = true; status.textContent = '';
-    try {
-      let restoredLimits;
-      if (!C.isLoggedIn(state.account)) {
-        const restored = await call('auth.refresh'); render(restored);
-        if (!C.isLoggedIn(state.account)) { status.textContent = t('로그인 후 사용 한도를 조회할 수 있습니다.'); return; }
-        restoredLimits = restored.rateLimits;
-      }
-      const scope = accountScope(), generation = ++usageGeneration; resetResetCreditRequest(scope);
-      const result = restoredLimits || await rpc('account/rateLimits/read', {}), rows = usageRows(result);
-      if (generation !== usageGeneration || accountScope() !== scope) { target.replaceChildren(); status.textContent = t('계정이 바뀌었습니다. 다시 조회해 주세요.'); return; }
-      resetCredits = result?.rateLimitResetCredits ?? null; state.rateLimits = result || {}; renderUsage(rows); renderQuota(); renderResetCredits(resetCredits);
-      status.textContent = rows.length ? t('현재 계정의 Codex 사용 한도입니다.') : t('사용 한도 정보가 제공되지 않았습니다.');
-    } catch (error) { target.replaceChildren(); status.textContent = t('사용 한도를 조회할 수 없습니다. ') + error.message; }
-    finally { usageLoading = false; $('usage-refresh').disabled = false; }
+    return agentUi?.refreshProviders();
   }
   async function loadTools(force = false) {
     show('tools-dialog'); const target = $('tools-list');
@@ -2025,7 +2003,7 @@
           }
           for (const e of entry.errors || []) card(t('스킬 로드 오류'), errorText(e.message), panel).classList.add('tool-card-notice');
         }
-        if (!counts[1]) card(t('설치된 스킬이 없습니다'), t('SKILL.md가 들어 있는 스킬 폴더를 가져오거나 Codex에게 스킬 생성을 요청하세요.'), panel).classList.add('tool-card-notice');
+        if (!counts[1]) card(t('설치된 스킬이 없습니다'), t('SKILL.md가 들어 있는 스킬 폴더를 가져오거나 Antigravity에게 스킬 생성을 요청하세요.'), panel).classList.add('tool-card-notice');
       } else {
         for (const server of data.data || []) {
           counts[2]++;
@@ -2289,7 +2267,7 @@
     const value = $('prompt').value, text = value.trim();
     if ((!text && !draftContext.attachments.length) || sending || voiceStarting || voiceActive) return;
     if (!state.models.some(m => (m.model || m.id) === $('model').value)) { toast(t('모델 목록을 새로고침해 주세요.')); return; }
-    const steer = !!state.busy && !!state.turnId, expectedTurnId = state.turnId || '', expectedThreadId = state.threadId || '', workspaceKey = state.workspace?.key || '';
+    const steer = false, expectedTurnId = state.turnId || '', expectedThreadId = state.threadId || '', workspaceKey = state.workspace?.key || '';
     const submitted = {value, context:JSON.parse(JSON.stringify(draftContext)), consultAccount:draftConsultAccount, scopes:new Set([draftScope])}; sending = submitted;
     closeComposerAddMenu(false);
     saveDraft(); updateSend(); scrollLatest();
@@ -2510,5 +2488,5 @@
   agentUi = window.MobileCodexAgents?.init({call, getState:()=>state, toast, show, close, closeAddMenu:()=>closeComposerAddMenu(false), closeFilePanel:()=>setFilePanelOpen(false), openAccounts:openAccountSettings, usageGauge, usageTime, getCharacters:()=>characterState, characterIcon, openLinuxSettings:()=>{ensureLinuxUi();selectSettingsTab('tools');show('settings-dialog');refreshLinuxStatus();$('linux-environment-card')?.scrollIntoView({block:'start'});}});
   $('usage-limits').after(resetCreditPanel);
   viewportChanged();
-  call('state').then(async initial => { render(initial); loadCharacterPacks(); recoverVoiceInput(); loadUpdates(); try { acceptPickedAttachments(await call('attachments.recover'), ''); } catch {} }).catch(e => toast(e.message));
+  call('state').then(async initial => { render(initial); loadCharacterPacks(); recoverVoiceInput(); loadUpdates(); if (initial.linux?.enabled) agentUi?.refreshProviders(); try { acceptPickedAttachments(await call('attachments.recover'), ''); } catch {} }).catch(e => toast(e.message));
 })();

@@ -570,6 +570,10 @@ public final class Engine {
     }
     public void phoneStateChanged() { io.execute(this::publish); }
     public void handle(String action, JSONObject args, Reply reply) {
+        if (Set.of("runtime.start", "models.refresh", "auth.refresh").contains(action)) {
+            handle("agents.providers.check", obj("provider", "agy", "force", true), reply);
+            return;
+        }
         // The terminal owns its bounded writer and stop deadline. These controls
         // must also respond while the Codex queue is waiting on an RPC.
         if (Set.of("terminal.input", "terminal.stop", "terminal.state").contains(action)) {
@@ -683,14 +687,14 @@ public final class Engine {
                         if (!Set.of("read-only", "workspace-write", "danger-full-access").contains(mode)) throw new IOException(t("잘못된 권한 모드입니다."));
                         permissionMode = mode;
                         context.getSharedPreferences("settings", 0).edit().putString("permissions", mode).apply();
-                        if (active != null && ready) resumeRemote(true);
+                        // Antigravity applies the updated permissions on the next turn.
                         publish(); reply.complete(obj("ok", true), null);
                     }
                     case "approvals.set" -> {
                         ensureEngineIdle(); String mode = args.getString("mode");
                         if (!Set.of("ask", "auto-review", "allow-all").contains(mode)) throw new IOException(t("잘못된 승인 방식입니다."));
                         approvalMode = mode; context.getSharedPreferences("settings", 0).edit().putString("approvalMode", mode).apply();
-                        if (active != null && ready) resumeRemote(true);
+                        // Antigravity applies the updated permissions on the next turn.
                         publish(); reply.complete(obj("ok", true), null);
                     }
                     case "config.read" -> { File config = new File(codexHome.root(), "config.toml"); reply.complete(obj("content", config.exists() ? dev.mobilecodex.app.core.Utf8Files.read(config.toPath()) : ""), null); }
@@ -918,13 +922,14 @@ public final class Engine {
         busy = false; turnId = "";
     }
     private void start() throws Exception {
-        start(true);
+        agentBridge();
     }
     /** Authentication can start in an empty HOME without touching saved threads. */
     private void start(boolean restoreConversation) throws Exception {
         start(restoreConversation, true);
     }
     private void start(boolean restoreConversation, boolean foregroundRuntime) throws Exception {
+        if (testTransport == null) { agentBridge(); return; }
         restoreConversation = restoreConversation && !loginInProgress && processHome.equals(codexHome.root());
         autoRestorePaused = false;
         if (testTransport != null) {
@@ -1812,96 +1817,36 @@ public final class Engine {
         return normalized.equals(scoped) ? normalized : "";
     }
     private void send(String text, String model, String effort, JSONArray attachmentIds, JSONArray skills, JSONArray mentions, Boolean fastMode, boolean consultPro) throws Exception {
-        if (!liveRemote.isBlank()) throw new IOException(t("음성 화면에서 메시지를 보내거나 음성 대화를 종료해 주세요."));
-        // A new message from the user ends the previous answering order.
-        GroupRun previousRun = group; if (previousRun != null) cancelGroup(previousRun);
-        if (roomCommand != null && roomCommand.isAlive()) throw new IOException(t("이전 명령이 종료 중입니다. 잠시 후 다시 보내 주세요."));
-        if (ProContextBuilder.MODEL_ID.equals(model)) throw new IOException(t("GPT-6-Pro 웹 모델은 전용 전송 경로를 사용해야 합니다."));
-        if (text.length() > 50000) throw new IOException(t("메시지는 최대 50,000자까지 입력할 수 있습니다."));
+        sendAntigravity(text, model, effort, attachmentIds, skills, mentions);
+    }
+    private void sendAntigravity(String text, String model, String effort, JSONArray attachmentIds, JSONArray skills, JSONArray mentions) throws Exception {
+        if (text.isBlank() || text.length() > 50000) throw new IOException(t("메시지를 1~50,000자로 입력해 주세요."));
+        if (attachmentIds != null && attachmentIds.length() > 0) throw new IOException(t("첨부 파일은 프로젝트에 저장한 뒤 경로를 알려 주세요."));
         documents.requireWorkspaceAvailable();
-        JSONArray input = input(text, attachmentIds, skills, mentions);
-        if (input.length() == 0) throw new IOException(t("메시지나 첨부 파일을 추가해 주세요."));
-        start();
-        if (account.length() == 0) throw new IOException(t("ChatGPT 계정으로 로그인해 주세요."));
-        String actualModel = resolvedModel(model);
-        // A supplied value applies to this new turn only. Omission deliberately
-        // preserves legacy inheritance and does not alter a session preference.
-        String serviceTierForTurn = fastMode == null ? null : (fastMode ? fastServiceTier(actualModel) : "default");
-        JSONObject candidate = null;
-        String candidateRemoteId = "", candidateLocalId = "";
+        if (group != null) cancelGroup(group);
         if (active == null) {
-            JSONObject params = threadStartParams(actualModel);
-            JSONObject thread = call("thread/start", params).getJSONObject("thread");
-            candidateRemoteId = thread.getString("id");
-            candidateLocalId = "local-" + UUID.randomUUID();
-            candidate = obj("id", candidateLocalId, "sessionVersion", 2, "codexThreadId", candidateRemoteId,
-                "title", titleFor(text, attachmentIds), "workspace", sessionWorkspaceName(), "workspaceKey", documents.key(), "model", actualModel,
-                "messages", new JSONArray(), "imageHistoryVersion", 1, "phoneToolsVersion", 1, "consultToolsVersion", 1, "fastMode", false);
-        } else {
-            if (!active.optString("workspaceKey").equals(documents.key())) throw new IOException(t("이 대화의 원래 작업 폴더를 다시 연결해 주세요."));
-            if (activeCodexThreadId().isBlank()) {
-                JSONObject thread = call("thread/start", threadStartParams(actualModel)).getJSONObject("thread");
-                candidateRemoteId = thread.getString("id");
-            } else resumeRemote(!actualModel.equals(active.optString("model")), actualModel);
+            threadId = "local-" + UUID.randomUUID();
+            active = obj("id", threadId, "sessionVersion", 2, "codexThreadId", "", "title", titleFor(text, attachmentIds),
+                "workspace", sessionWorkspaceName(), "workspaceKey", documents.key(), "model", model,
+                "messages", new JSONArray(), "phoneToolsVersion", 1);
+            if (draftAgents.length() > 0) active.put("agents", new JSONArray(draftAgents.toString()));
+            sessions.put(active);
         }
-        String targetLocal = candidate == null ? threadId : candidateLocalId;
-        String targetRemote = candidateRemoteId.isBlank() ? activeCodexThreadId() : candidateRemoteId;
-        JSONObject owner = candidate == null ? active : candidate;
-        if (candidate != null && draftAgents.length() > 0) candidate.put("agents", new JSONArray(draftAgents.toString()));
-        List<String> targets = AgentGroup.grouped(owner) ? AgentGroup.targets(text, owner) : List.of(AgentGroup.CODEX);
-        if (!targets.contains(AgentGroup.CODEX)) {
-            // Only invited agents were called; Codex reads this message on its next turn.
-            if (candidate != null) { active = candidate; threadId = candidateLocalId; serverThreadId = candidateRemoteId; sessions.put(active); }
-            else if (activeCodexThreadId().isBlank() && !candidateRemoteId.isBlank()) { active.put("codexThreadId", candidateRemoteId); serverThreadId = candidateRemoteId; }
-            active.getJSONArray("messages").put(userMessage(text, attachmentIds, skills, mentions));
-            draftAgents = new JSONArray();
-            GroupRun run = new GroupRun(threadId); run.model = actualModel; run.effort = effort;
-            run.context = new JSONArray(active.getJSONArray("messages").toString());
-            run.queue.addAll(targets);
-            group = run; persist(); advanceGroup(run); return;
+        if (!active.optString("workspaceKey").equals(documents.key())) throw new IOException(t("이 대화의 원래 작업 폴더를 다시 연결해 주세요."));
+        JSONObject member = AgentGroup.member(active, "gemini");
+        if (member == null) {
+            member = AgentGroup.newAgent("gemini", model, effort, documents.key().isBlank() ? "chat" : permissionMode.equals("read-only") ? "read" : "write");
+            active.put("agents", new JSONArray().put(member));
         }
-        if (AgentGroup.grouped(owner))
-            input = prepend(input, AgentGroup.codexContext(owner, owner.getJSONArray("messages"), owner.getJSONArray("messages").length(), Set.of()));
-        ConsultGrant consultation = consultPro ? new ConsultGrant("", candidate == null ? active.optString("workspaceKey") : candidate.optString("workspaceKey")) : null;
-        if (consultation != null) {
-            if (candidateRemoteId.isBlank()) requireConsultationTool();
-            input = consultationInput(input, consultation, !candidateRemoteId.isBlank() || active.optInt("consultToolsVersion") >= 1);
-        }
-        busy = true; status = t("작업 중"); publish();
-        try {
-            JSONObject params = obj("threadId", targetRemote, "input", input, "cwd", projectDirectory().getAbsolutePath(), "approvalPolicy", approvalPolicy(), "approvalsReviewer", approvalsReviewer());
-            if (!actualModel.isEmpty()) params.put("model", actualModel);
-            if (!effort.isEmpty()) params.put("effort", effort);
-            if (serviceTierForTurn != null) params.put("serviceTierForTurn", serviceTierForTurn);
-            JSONObject turn = call("turn/start", params).optJSONObject("turn");
-            if (candidate != null) { active = candidate; threadId = candidateLocalId; serverThreadId = candidateRemoteId; sessions.put(active); }
-            else {
-                active.put("model", actualModel);
-                if (activeCodexThreadId().isBlank()) { active.put("codexThreadId", targetRemote).put("consultToolsVersion", 1); serverThreadId = targetRemote; }
-            }
-            if (fastMode != null) active.put("fastMode", fastMode);
-            JSONObject message = userMessage(text, attachmentIds, skills, mentions);
-            if (consultation != null) message.put("consultPro", true);
-            active.getJSONArray("messages").put(message);
-            draftAgents = new JSONArray();
-            if (AgentGroup.grouped(active)) {
-                GroupRun run = new GroupRun(targetLocal); run.model = actualModel; run.effort = effort;
-                run.current = AgentGroup.CODEX; run.codexRunning = true; run.codexFrom = active.getJSONArray("messages").length() - 1;
-                run.context = new JSONArray(active.getJSONArray("messages").toString()); run.codexCursor = message.optString("id");
-                for (String id : targets) if (!id.equals(AgentGroup.CODEX)) run.queue.add(id);
-                group = run;
-            }
-            if (turn != null) {
-                String startedTurn = turn.optString("id", "");
-                if (!startedTurn.isBlank()) runningTurns.put(targetLocal, startedTurn);
-                if (consultation != null) consultation.turnId = startedTurn;
-            }
-            if (consultation != null) consultGrants.put(targetLocal, consultation);
-            else consultGrants.remove(targetLocal);
-            syncCurrentTurn();
-            persist(); publish();
-            if (group != null && group.local.equals(targetLocal)) advanceGroup(group);
-        } catch (Exception e) { syncCurrentTurn(); status = t("요청 실패"); publish(); throw e; }
+        member.put("model", model).put("effort", effort);
+        active.put("model", model);
+        active.getJSONArray("messages").put(userMessage(text, attachmentIds, skills, mentions));
+        draftAgents = new JSONArray();
+        GroupRun run = new GroupRun(threadId);
+        run.model = model; run.effort = effort;
+        run.context = new JSONArray(active.getJSONArray("messages").toString());
+        run.queue.add("gemini");
+        group = run; persist(); advanceGroup(run);
     }
     private void resume(String id) throws Exception {
         if (!id.equals(threadId)) stopLive();
@@ -2527,6 +2472,20 @@ public final class Engine {
         if (providers == null) return;
         for (int i = 0; i < providers.length(); i++) {
             JSONObject provider = providers.optJSONObject(i); if (provider == null) continue;
+            if (provider.optString("id").equals("agy")) {
+                ready = provider.optString("state").equals("ready");
+                authState = ready ? "signed_in" : "signed_out";
+                status = ready ? "Antigravity 연결됨" : provider.optString("reason", "Antigravity 계정을 연결해 주세요.");
+                models = new JSONArray();
+                JSONArray available = provider.optJSONArray("models");
+                if (available != null) for (int m = 0; m < available.length(); m++) {
+                    JSONObject item = available.optJSONObject(m); if (item == null) continue;
+                    JSONArray levels = new JSONArray(), efforts = item.optJSONArray("efforts");
+                    if (efforts != null) for (int e = 0; e < efforts.length(); e++) levels.put(obj("reasoningEffort", efforts.optString(e)));
+                    models.put(obj("id", item.optString("id"), "model", item.optString("id"), "displayName", item.optString("label", item.optString("id")),
+                        "isDefault", item.optBoolean("isDefault"), "supportedReasoningEfforts", levels, "defaultReasoningEffort", item.optString("defaultEffort")));
+                }
+            }
             usageWidgets.provider(provider);
             int at = -1;
             for (int j = 0; j < agentProviders.length(); j++) if (agentProviders.optJSONObject(j).optString("id").equals(provider.optString("id"))) at = j;
@@ -2609,8 +2568,7 @@ public final class Engine {
         return at < 0 ? null : messages.optJSONObject(at);
     }
     private void queueFollowUps(GroupRun run, JSONObject session, String text, String self) {
-        // Coalesce only pending calls; a new completed reply can call the same peer again.
-        run.queue.addAll(AgentGroup.followUps(text, session, self));
+        // Mobile-agy has a single agent. Mentions in its output do not dispatch another turn.
     }
     private void updateGroupCurrent(GroupRun run) {
         run.current = run.codexRunning ? AgentGroup.CODEX : run.active.values().stream().map(turn -> turn.id).findFirst().orElse("");

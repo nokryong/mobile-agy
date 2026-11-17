@@ -1,13 +1,7 @@
 name: Verify production diagnostic relay
 on:
-  pull_request:
-    types: [ready_for_review]
   workflow_dispatch:
-    inputs:
-      production_url:
-        description: 'Approved production Vercel alias; creates one clearly marked synthetic diagnostic issue'
-        type: string
-        required: true
+
 permissions:
   contents: read
 concurrency:

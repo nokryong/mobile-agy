@@ -1,13 +1,7 @@
 name: Actions history cleanup
 on:
-  workflow_run:
-    workflows: ['Android APK']
-    types: [completed]
-  schedule:
-    - cron: '17 18 * * *'
   workflow_dispatch:
-  push:
-    branches: ['maintenance/actions-cleanup']
+
 permissions:
   actions: write
   contents: write

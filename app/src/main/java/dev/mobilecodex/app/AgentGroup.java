@@ -15,7 +15,7 @@ final class AgentGroup {
     private AgentGroup() {}
     static final String CODEX = "codex";
     /** Invitable agents: member id, provider id, display name. */
-    static final List<String[]> AGENTS = List.of(new String[]{"claude", "claude", "Claude"}, new String[]{"gemini", "agy", "Gemini"});
+    static final List<String[]> AGENTS = List.<String[]>of(new String[]{"gemini", "agy", "Antigravity"});
     static final Set<String> MODES = Set.of("chat", "read", "write");
     static final int MAX_CONTEXT = 160000;
     private static final Map<String, List<String>> ALIASES = Map.of(
@@ -50,7 +50,7 @@ final class AgentGroup {
     }
     /** Participants are Codex first, then invited agents. */
     static List<String> participants(JSONObject session) {
-        List<String> ids = new ArrayList<>(); ids.add(CODEX);
+        List<String> ids = new ArrayList<>();
         for (JSONObject agent : enabled(session)) ids.add(agent.optString("id"));
         return ids;
     }
@@ -160,13 +160,12 @@ final class AgentGroup {
         int from = indexOf(messages, member.optString("cursorId")) + 1;
         String mode = member.optString("mode", "chat");
         String access = switch (mode) {
-            case "read" -> "작업 폴더는 mobile_* 도구로 읽기·검색만 할 수 있습니다. 수정은 Codex에게 맡기세요.";
+            case "read" -> "작업 폴더는 mobile_* 도구로 읽기·검색만 할 수 있습니다.";
             case "write" -> "작업 폴더는 mobile_* 도구로 다룰 수 있습니다. 수정·명령은 앱의 승인 설정과 작업 차례를 따릅니다.";
             default -> "파일이나 휴대폰 도구는 사용할 수 없습니다. 대화로만 답하세요.";
         };
-        String header = "당신은 Mobile Codex 그룹 대화의 @" + id + " (" + name(id) + ")입니다. 다른 참가자: " + roster(session, id) + ".\n"
-            + access + " 공유된 대화 기록을 읽고 답하세요. 같은 질문에 다른 참가자도 동시에 답할 수 있습니다. 다른 참가자 의견이 꼭 필요할 때만 독립된 @ID로 호출하세요. "
-            + "@file:경로, @app:이름은 참가자 호출이 아닙니다. 도구 결과 없이 작업 성공을 주장하지 마세요.\n"
+        String header = "당신은 Mobile-agy의 Antigravity 에이전트입니다.\n"
+            + access + " 대화 기록을 읽고 요청을 수행하세요. 도구 결과 없이 작업 성공을 주장하지 마세요.\n"
             + ChatIconInstructions.forEnabled(chatIconsEnabled) + "\n";
         Set<String> known = new HashSet<>();
         if (!member.optString("nativeSession").isBlank()) for (int i = from; i < messages.length(); i++) {

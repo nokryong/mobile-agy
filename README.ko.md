@@ -1,272 +1,30 @@
-# Mobile Codex
+# Mobile-agy
 
-## 설치 전에 확인하세요
+Antigravity 전용 Android 클라이언트입니다. Mobile Codex의 Android 앱과 앱 내 Linux·CLI 연결 코드를 기반으로 합니다.
 
-Play 프로텍트가 APK 설치를 막는 경우, 다음 순서로 잠시 설정을 바꾸세요.
+- 앱 ID `dev.mobileagy.app`, 초기 버전 `0.1.0`
+- Google 계정으로 Antigravity CLI에 로그인
+- 계정에서 조회한 모델 선택, 응답 스트리밍, 중지, 저장된 대화 재개
+- 프로젝트, 파일 탐색, 터미널과 휴대폰 도구를 기존 Android 기반에서 재사용
+- 프로젝트 작업은 Antigravity 참가자 설정의 권한과 앱의 승인 확인을 적용
 
-1. **Google Play 스토어 → 프로필 아이콘 → Play 프로텍트 → 설정**을 엽니다.
-2. **Play 프로텍트로 앱 검사**를 끕니다.
-3. [공식 프로젝트 GitHub 릴리스](https://github.com/nokryong/mobile-codex/releases)의 APK를 설치합니다.
-4. 같은 Play 프로텍트 화면으로 돌아가 검사를 다시 켭니다.
+## 시작하기
 
-APK를 여는 앱에서 **이 출처 허용**을 별도로 요구할 수 있습니다. Android 버전에 따라 메뉴 이름이 다를 수 있으니 [Google Play 프로텍트 공식 도움말](https://support.google.com/googleplay/answer/2812853?hl=ko)도 확인하세요.
+ARM64 Android 10 이상에서 APK를 설치합니다. 계정 설정에서 앱 내 Linux 환경을 설치·활성화한 뒤 Antigravity CLI 설치와 로그인을 진행합니다. 로그인 완료 후 준비 상태를 새로고침하면 모델을 선택할 수 있습니다.
 
-[English](README.md) · **한국어**
+## 검증 범위
 
-<p align="center"><img src="app/src/main/assets/web/codex-logo.png" alt="Mobile Codex 로고" width="144" /></p>
+초기 버전은 로컬 APK 빌드, Antigravity 단독 전송·스트리밍·중지·재개 회귀 테스트, 공급자 런타임 테스트를 기준으로 검증합니다. 실기기 Google 로그인과 실제 모델 호출은 별도 확인이 필요합니다. 채팅 첨부는 아직 Antigravity에 연결하지 않았으며 프로젝트 파일 경로를 통해 파일을 다룹니다.
 
-<p>
-  <img width="24%" alt="General chat" src="https://github.com/user-attachments/assets/14dd8782-58eb-4784-96bc-aaa190adfa87" />
-  <img width="24%" alt="Git clone" src="https://github.com/user-attachments/assets/84b311d7-c584-4107-a09e-07862b11797d" />
-  <img width="24%" alt="Skill selection" src="https://github.com/user-attachments/assets/e2ca66de-9ac6-4044-89c5-4daf41c8e308" />
-  <img width="24%" alt="Image generation" src="https://github.com/user-attachments/assets/7beb3213-9051-4fc8-9051-40ff5fc45a5a" />
-</p>
+기존 Codex 전용 기능과 테스트 일부가 소스에 남아 있습니다. `AntigravityEngineTest`가 이 앱의 기본 전송 경로를 검증합니다. 이전 프로젝트의 자동 배포 작업은 수동 실행으로 전환했습니다.
 
-**Android에서 Codex를 사용하고, 같은 대화에 Claude와 Gemini(Antigravity)를 초대하세요.**
+## 빌드
 
-Codex 데스크톱의 작업 방식을 모바일로 옮기는 개인용 클라이언트입니다. Codex 실행 엔진과 Python·Node.js·Git을 APK에 포함해, Termux 설치나 별도 PC 서버 없이 기기에서 바로 작업할 수 있습니다.
-
-**0.3.1 정식 버전** · **ARM64 / Android 10 이상** · 제작 [nokryong](https://github.com/nokryong)
-
-[APK 다운로드](https://github.com/nokryong/mobile-codex/releases) · [개발 빌드](https://github.com/nokryong/mobile-codex/actions/workflows/android.yml) · [문제 제보](https://github.com/nokryong/mobile-codex/issues)
-
-> OpenAI 공식 앱이 아닌 개인 프로젝트입니다. 모델 추론에는 인터넷과 Codex를 사용할 수 있는 계정이 필요합니다. Codex 프로세스와 파일·명령 도구는 Android 기기에서 실행합니다.
-
-## 0.3.1 업데이트
-
-- **터미널 응답성:** 입력이 막혀도 상태 조회·출력 수집·중지를 계속 처리합니다.
-- **정확한 파일 비교:** 빈 줄로 시작하는 큰 파일의 diff 줄 번호를 올바르게 표시합니다.
-- **업데이트 파일 재사용:** 업데이트를 다시 확인해도 검증한 다운로드 APK를 재사용합니다.
-- **개발 환경:** 개발·CI에 패치된 Node.js 기준 버전을 적용했습니다. [릴리스 노트](docs/releases/0.3.1.md).
-
-## 0.2.15 업데이트
-
-- **Live 음성 안정성:** Android 네이티브 음성 처리로 전환해 다른 앱을 사용하거나 화면을 껐을 때의 음성 재생을 개선했습니다.
-- **통화 중 표시:** Android 12 이상에서 통화 시간과 종료 버튼이 있는 시스템 통화 알림을 사용합니다. 알림에서 종료한 뒤 앱으로 돌아와도 종료 상태를 정확히 표시합니다. [릴리스 노트](docs/releases/0.2.15.md).
-
-## 0.2.14 업데이트
-
-- **백그라운드 음성:** 다른 앱으로 전환하거나 화면을 꺼도 Codex Live 대화를 이어갑니다.
-- **통화 알림:** 알림에서 Live로 돌아가거나 음성을 종료합니다. 종료하면 마이크를 해제하며 진행 중인 Codex 작업은 유지합니다. [릴리스 노트](docs/releases/0.2.14.md).
-
-## 0.2.13 업데이트
-
-- **Codex Live:** 기존 계정으로 Codex와 음성 대화하고, 프로젝트 작업을 말로 지시하고 결과를 음성으로 듣습니다.
-- **음성 설정:** 엔진이 제공하는 음성 25개를 접고 펼치는 목록에서 선택합니다. 확인된 언어별로 묶고 한국어 음성은 한울·햇살로 표시합니다.
-- **모델 선택:** 간결한 모델 선택기, 영어 추론 강도, 한곳에 모은 작업 권한을 제공합니다. [릴리스 노트](docs/releases/0.2.13.md).
-
-## 0.2.12 수정
-
-- AI 협업이 계속 이어지도록 호출 깊이·전체 발언 횟수·같은 상대 재호출 제한을 제거했습니다. 중지하거나 새 지시를 보내면 대기 호출도 취소됩니다. 새 설정은 없습니다. [릴리스 노트](docs/releases/0.2.12.md).
-
-## 0.2.10 업데이트
-
-- 초대한 참가자마다 승인 방식을 선택합니다. Claude는 설치된 CLI가 지원할 때 자동 검토를 제공하며, 지원하지 않는 선택지는 숨깁니다.
-- 모두에게 동시에 보내고 응답이 시작되는 순서대로 표시합니다. 같은 프로젝트의 수정 작업은 차례로 실행합니다. [릴리스 노트](docs/releases/0.2.10.md).
-
-## 0.2.8 주요 업데이트
-
-- **에이전트 초대:** 입력창에서 Claude와 Gemini(Antigravity)를 초대합니다. 같은 대화를 읽고 차례로 답하며, 멘션으로 답할 참가자를 고릅니다.
-- **참가자별 설정:** 초대한 에이전트마다 모델·추론 강도·프로젝트 권한을 정합니다. 같은 대화에서 현재 답변과 대기 중인 발언을 중지합니다.
-- **CLI 설치·로그인:** 계정 설정에서 설치하고 로그인합니다. 터미널 입력을 실행 중인 프로그램에 전달하며 설치 질문과 터미널 조회 요청을 처리합니다.
-- **화면 정리:** 실제 모델·추론 선택값을 표시합니다. Chat 전환·Pro에게 물어보기·GitHub 프로젝트 동기화·음성 전송 안내를 제거했습니다.
-- **Codex 런타임 갱신:** `@mmmbuto/codex-cli-termux@0.162.1-termux.1`을 포함합니다. 사용할 수 있는 모델은 로그인한 계정에서 조회합니다.
-
-프로젝트 정보는 JSON 파일로 내보내고 가져올 수 있습니다. 대화 기록·진행 중인 작업·소스 파일·로그인 정보는 각 기기에 남습니다. 이번 변경은 [0.2.8 릴리스 노트](docs/releases/0.2.8.md)를 참고하세요.
-
-## 주요 기능
-
-
-| 기능 | 할 수 있는 일 |
-| --- | --- |
-| 프로젝트와 대화 | 프로젝트별 목록, 기본 Codex 폴더를 사용하는 일반 대화, 저장된 기록 열기, 응답 스트리밍·중지·재개, 작업 중 추가 지시 |
-| 에이전트 초대 | 기존 Codex 대화에 Claude·Gemini(Antigravity) 초대, 참가자 멘션·동시 답변·개별 설정 |
-| Fast | 지원하는 Codex 모델에서 번개 버튼으로 Fast 선택 |
-| Codex Live | 음성 대화, 프로젝트 작업 음성 지시, 결과 음성 안내, 마이크 음소거와 음성 선택 |
-| 프로젝트 정보 옮기기 | JSON 파일로 프로젝트 ID·이름·병합 이력을 내보내고 가져온 뒤 기기별 작업 폴더 연결 |
-| 파일 작업 | 폴더 탐색·검색, 파일 읽기·생성·수정·이동·이름 변경·삭제, 변경 전 확인과 복구 사본 |
-| 첨부와 이미지 | 여러 파일 첨부, 이미지 미리보기, 여러 장의 생성 결과 갤러리, 확대·스와이프·원본 저장 |
-| 기기 내 개발 도구 | Python·pip, Node.js·npm/npx, Git, 선택 설치하는 Linux 환경, 실행 중인 명령에 입력 전송과 출력 스트리밍 |
-| 변경 사항 검토 | Git 상태 확인, HEAD 기준 변경 비교, 작업 파일 복원과 복구 사본 |
-| 플러그인·스킬·MCP | 플러그인 설치·활성화와 계정 연결, 스킬 폴더 가져오기, MCP 서버 설정·상태·도구 확인 |
-| 계정과 사용 한도 | ChatGPT 계정을 여러 개 등록해 안전하게 전환하고, 계정별 대화를 분리하며, 남은 Codex 한도를 간단·상세 그래프로 확인 |
-| 휴대폰 제어 | 접근성을 통한 다른 앱 열기, 화면 읽기, 탭·텍스트 입력·스크롤·뒤로·홈 이동 |
-| 플로팅 대화와 음성 | 다른 앱 위에서 대화·작업 중지·추가 지시, 메인 입력창 안에서 음성 받아쓰기·완료·취소, 인식 결과를 입력창에 반영 |
-| 맞춤 설정 | 모델·추론 강도·작업 권한, 맞춤 지침, Codex 설정 편집, 테마와 대화 아이콘, 기기 언어/한국어/영어 UI |
-| 앱 업데이트 | 공개 GitHub 릴리스 확인, APK 다운로드·무결성·서명 검증, Android 설치 화면 연결 |
-
-휴대폰에서는 서랍과 시트로, 태블릿에서는 여러 패널로 구성합니다. 라이트·다크 테마에 반투명 상단 바, 떠 있는 입력창, 끌어서 닫는 모바일 시트를 제공하며 동작 줄이기 설정을 따릅니다. UI가 아직 전용 화면을 제공하지 않는 기능도 Codex 도구와 설정을 통해 사용할 수 있는 구조이며, 실제 지원 범위는 실행 엔진·계정·Android 권한·설치된 명령에 따라 달라집니다.
-
-## 설치
-
-**준비물:** ARM64 Android 10 이상 기기, 최신 Android System WebView, 인터넷 연결, Codex를 사용할 수 있는 계정.
-
-### APK 받기
-
-[0.3.1 릴리스](https://github.com/nokryong/mobile-codex/releases/tag/v0.3.1)에서 **`mobile-codex-0.3.1-arm64.apk`**를 받습니다. 일반 빌드의 설치 파일은 Releases에 게시합니다. [Actions → Android APK](https://github.com/nokryong/mobile-codex/actions/workflows/android.yml)의 **Artifacts**에는 아래 검사 자료를 보관하며, APK 산출물은 `apk_only`를 선택한 수동 테스트 실행에만 있습니다.
-
-| Actions 산출물 | 용도 |
-| --- | --- |
-| `mobile-codex-test-apk` | 수동 테스트 실행의 APK와 검증 파일입니다. ZIP을 풀어 설치하며, 이 실행은 릴리스를 게시하지 않습니다. |
-| `ui-check-reports` | 브라우저 검사 결과와 스크린샷입니다. 설치 파일은 없으며 JavaScript·Python 테스트 결과는 실행 로그에서 확인합니다. |
-| `android-check-reports` | Android 테스트와 Lint 결과입니다. 설치 파일은 없습니다. |
-
-Actions 산출물 다운로드에는 GitHub 로그인이 필요하며, 보관 기간은 7일입니다. 공개 릴리스 파일은 이 로그인 없이 받을 수 있습니다. 실패한 빌드는 새 릴리스를 게시하지 않습니다.
-
-다운로드한 APK를 열고 Android 설치 화면을 따릅니다. 요청이 나타나면 다운로드에 사용한 앱의 **알 수 없는 앱 설치** 권한을 허용합니다.
-
-### 처음 시작하기
-
-1. **ChatGPT 계정 연결**을 누르고 표시된 코드를 브라우저에서 입력해 로그인합니다.
-2. 사이드바에서 **일반 대화**를 시작하거나 **프로젝트 추가**로 작업할 폴더를 등록합니다. 프로젝트 옆 화살표를 누르면 해당 프로젝트의 대화 목록이 열립니다.
-3. 로컬 프로젝트에서 셸 명령을 실행하려면 **설정 → 도구 → 기기 파일 접근 허용**을 설정합니다.
-4. **설정 → 일반 → 언어**에서 기기 언어를 따르거나 한국어/영어를 선택합니다. 기존 대화와 파일 내용은 바꾸지 않습니다.
-5. 입력창에서 모델·추론 강도·작업 권한을 선택하고 요청을 보냅니다. **`+`**는 파일 첨부, **`@`**는 파일·앱 선택, **`$`**는 스킬 선택입니다.
-
-왼쪽 아래의 한도 도넛을 누르면 **설정 → 계정**이 열립니다. 여기서 ChatGPT 계정을 추가하거나 전환할 수 있습니다. 인증 정보는 앱 비공개 저장소에 보관하며 계정마다 저장된 대화 목록을 따로 표시합니다.
-
-저장된 대화는 로그인이나 엔진 실행 없이 열 수 있습니다. 프로젝트를 제거하거나 연결 해제하면 해당 대화는 일반 대화로 옮기고 실제 폴더·파일은 유지합니다. 일반 대화는 프로젝트 선택 없이 기본 **Codex** 폴더에서 작업합니다. 기존 앱 내부 작업 경로를 그대로 사용하므로 기존 파일도 유지합니다. 단순한 폴더 접근 권한 상실은 대화를 옮기지 않으며 **폴더 다시 연결**로 복구합니다.
-
-다른 대화가 실행 중이어도 관련 없는 대화와 프로젝트를 삭제하거나 이름을 바꿀 수 있습니다. 실행 중인 대화와 해당 프로젝트의 삭제는 작업을 중지할 때까지 제한합니다.
-
-### 프로젝트 정보 옮기기
-
-프로젝트 정보 내보내기·가져오기로 ID·이름·병합 이력을 JSON 파일로 옮길 수 있습니다. 가져온 프로젝트에는 이 기기의 작업 폴더를 연결하세요. 소스 파일·대화·인증정보·진행 중인 작업은 포함되지 않습니다.
-
-### 기존 앱 업데이트
-
-**설정 → 업데이트**에서 공개 릴리스를 확인할 수 있습니다. 다운로드한 APK의 체크섬·패키지·버전·서명을 검증한 뒤 Android 설치 화면으로 연결하며, 설치는 사용자가 승인합니다. main에서 테스트·빌드·기존 키 서명 검증이 성공하면 새 버전을 Releases에 자동 게시합니다. 알파 버전은 시험판으로 표시하며, 이미 게시한 버전의 파일은 덮어쓰지 않습니다. 다음 릴리스를 만들 때 versionName과 versionCode를 함께 올립니다.
-
-기존 앱을 유지하며 업데이트하려면 호환되는 패키지명과 서명키가 필요합니다. **main의 Actions APK는 등록된 기존 키로 서명하고 인증서 지문을 검증합니다.** 서명 Secret이 없거나 인증서가 다르면 APK를 게시하지 않습니다. 이 설정 이전의 Actions APK는 임시 debug 키로 서명되어 호환되지 않을 수 있습니다. 앱을 삭제하면 내부 대화·로그인·복구 사본도 삭제됩니다.
-
-0.1.7부터 앱 ID는 `dev.mobilecodex.app`입니다. 다른 앱 ID를 사용한 이전 버전과는 별도 앱으로 설치됩니다. 자세한 내용은 [업데이트와 배포 안내](docs/app-updates.md)를 참고하세요.
-
-## 기능 사용 안내
-
-### Codex Live
-
-입력창의 Live 버튼을 누르면 Codex와 음성으로 대화합니다. 프로젝트에서 파일 읽기·수정 같은 작업을 말로 지시하고 결과를 음성으로 들을 수 있습니다. 음성 설정에서 목소리와 언어를 선택하고 마이크 음소거·종료 버튼으로 제어합니다.
-
-시작한 음성 대화는 다른 앱으로 전환하거나 화면을 꺼도 이어집니다. Codex Live 알림을 누르면 대화로 돌아가고, 알림의 종료 버튼은 음성 연결만 끝냅니다.
-
-현재 Live 화면에 글자로 입력한 메시지는 음성 답변까지 지원하며 작업 실행으로 이어지지 않습니다. 작업은 말로 지시하거나 기존 대화 입력창을 사용하세요.
-
-### Claude·Gemini 초대
-
-모든 대화는 Codex와 시작합니다. 입력창의 **+ → 에이전트 초대**에서 Claude, Gemini(Antigravity)를 1~2명 골라 지금 대화에 초대합니다. 초대된 에이전트는 지금까지의 대화를 읽습니다. 멘션이 없으면 모두 동시에 답하고, 첫 출력이 도착한 순서대로 표시됩니다. `@codex`, `@claude`, `@gemini`, `@all`로 특정 참가자만 부를 수 있습니다. 중지는 모든 답변과 대기 호출을 취소합니다. Codex가 답하는 중 추가 지시를 보내면 다른 참가자는 중지됩니다.
-
-상단의 **참가자** 버튼은 오른쪽 사이드바를 엽니다. 이름을 누르면 모델과 추론을 고를 수 있으며, Codex는 하단과 같은 설정을 씁니다. 참가자마다 프로젝트 권한과 승인 방식(승인 받기·모두 허용)을 정합니다. Claude는 지원되는 경우 자체 자동 검토도 선택할 수 있습니다. 프로젝트 수정은 한 참가자씩 진행합니다.
-
-Claude·Antigravity는 앱 내부 Linux 환경을 활성화한 뒤 **설정 → 계정**에서 CLI를 설치하고 로그인합니다. 외부 Termux 앱은 필요하지 않습니다. 모델 목록은 연결된 공급자에서 확인하며, 설치·로그인 실패 시 다른 모델로 대체하지 않습니다. 자세한 동작과 실기기 확인 항목은 [에이전트 초대 안내](docs/invited-agents.md)를 참고하세요.
-
-### 플러그인·스킬·MCP
-
-사이드바의 **플러그인 · 스킬 · MCP**에서 관리합니다.
-
-- **플러그인:** 마켓플레이스와 상세 정보를 확인해 설치·활성화합니다. 추가 계정 연결이 필요하면 연결 버튼이 표시됩니다.
-- **스킬:** `SKILL.md`가 바로 아래에 있는 폴더를 **스킬 가져오기**로 선택합니다. 스크립트·참고 자료·에셋도 함께 가져오며, 대화에서 `$`로 선택합니다.
-- **MCP:** 서버 상태와 도구 목록을 확인하고 OAuth 연결 또는 `config.toml` 설정을 사용합니다. stdio 서버의 명령은 Android에서 실행 가능해야 합니다.
-
-### 선택 설치하는 Linux 개발 환경
-
-**설정 → 도구 → Linux 환경**에서 Arch Linux ARM을 설치하고 **Linux 환경 사용**을 켭니다. 약 152 MB의 루트 파일 시스템을 별도로 내려받으며 APK에는 포함하지 않습니다. 설치 전에 저장 공간을 확인하고 다운로드 무결성을 검증합니다. 설치 도중 취소하거나 실패 후 다시 시도할 수 있습니다.
-
-활성화하면 앱 터미널에서 Linux 명령을 실행합니다. Codex는 기존 셸 도구와 승인 절차를 통해 `mc-linux -- /bin/bash -lc '명령'`을 사용할 수 있습니다. 현재 프로젝트는 Linux의 `/workspace`로 연결하며, 설치한 패키지와 Linux 홈은 앱 내부에 보관합니다. Linux 환경을 삭제해도 연결된 프로젝트 폴더는 유지됩니다. 자세한 사용법과 호환 범위는 [Linux 환경 안내](docs/linux-runtime.md)를 참고하세요.
-
-### 휴대폰 제어와 플로팅 대화
-
-**설정 → 도구 → 휴대폰 제어**에서 접근성 서비스를 연결한 뒤, 직접 제어를 켜고 **새 대화**에서 요청합니다. 다른 앱을 열고 화면을 확인하거나 탭·입력·스크롤할 수 있습니다. 화면 위 중지 버튼으로 끌 수 있으며 앱 프로세스가 재시작되면 제어가 꺼집니다.
-
-Android 10은 화면 요소를 읽고, Android 11 이상은 스크린샷도 사용합니다. **제어에 사용되는 화면 내용과 이미지는 AI 서비스로 전송되고 대화 기록에 남을 수 있습니다.**
-
-접근성 서비스가 연결되어 있으면 **플로팅 대화 열기**로 다른 앱 위에서도 대화할 수 있습니다. 메인 대화의 음성 입력은 별도 화면 대신 입력창 안에서 녹음 상태·인식 중인 텍스트·완료·취소를 표시합니다. 결과는 초안에 넣으며 확인한 뒤 직접 전송합니다. 플로팅 음성 입력은 기기의 별도 인식 화면을 사용합니다. 인식 엔진은 기기의 음성 서비스이며 ChatGPT 앱의 음성 엔진과 같지 않습니다. 서비스에 따라 외부 서버와 인터넷을 사용할 수 있습니다.
-
-[휴대폰 제어 안내](docs/phone-use.md) · [플로팅 대화와 변경 사항](docs/floating-and-changes.md) · [음성 입력 안내](docs/voice-input.md)
-
-### 이미지·지침·개발 도구
-
-- **이미지:** 여러 결과를 갤러리로 묶어 확대·넘기기·개별 원본 저장을 제공합니다. 생성 기능의 사용 가능 여부는 엔진과 계정에 따릅니다.
-- **맞춤 지침:** 설정에서 언어·말투·작업 규칙을 편집합니다. 실제 Codex 전역 지침 파일에 저장하고 다음 요청부터 다시 읽습니다.
-- **대화 아이콘:** 설정 → 일반에서 캐릭터 표시를 켜거나 끕니다. 생성 이미지와 첨부 사진에는 영향을 주지 않습니다.
-- **로컬 캐릭터 팩:** **설정 → 일반**에서 `character-packs` 루트 폴더를 한 번 선택합니다. `Documents/MobileCodex/character-packs`는 예시일 뿐 어느 일반 폴더든 연결할 수 있습니다. 루트 아래 팩 폴더에 32개 이미지를 복사하고 `mapping.json`을 둔 뒤 새로고침하고 목록에서 팩을 선택하세요. 파일을 바꾸거나 삭제한 뒤에도 새로고침하며, 접근 권한을 잃으면 루트 폴더를 다시 선택하세요. 각 팩은 `mapping.json`으로 32개 기본 상태 키를 연결하며 PNG·WebP는 파일당 4 MiB 이하, 가로·세로 각각 2048px 이하이어야 합니다. [32개 상태 전체 예제](docs/examples/character-pack-default/README.md)를 참고하세요.
-- **도구 진단:** 설정 → 도구 → **도구 실행 확인**에서 Python·Node.js·Git 등의 실행 상태를 로그인 없이 확인합니다.
-
-## Android에서 알아둘 점
-
-0.2.9은 정식 릴리스입니다. 기기별 동작은 Android·WebView·권한 설정에 따라 달라질 수 있습니다. 자동 테스트와 실기기 확인 범위는 [검증 기록](docs/verification.md)과 [기기 검증 목록](docs/device-validation.md)에 구분합니다.
-
-- **파일 접근:** Android가 허용한 범위에서 동작합니다. 다른 앱의 비공개 데이터나 시스템 보호 영역에는 접근할 수 없으며, 전체 파일 접근은 루트 권한이 아닙니다. 클라우드 문서 제공자 폴더는 일반 셸 경로 대신 문서 도구를 사용합니다.
-- **승인 방식:** 대화 입력창의 모델 옆에서 **승인 받기 / 자동 검토 / 모두 허용**을 선택합니다. 자동 검토는 승인 요청을 Codex 위험 검토기에 맡기며 파일 접근 범위와는 별도입니다.
-- **작업 권한:** Android 포트에는 데스크톱의 명령 샌드박스가 없으며, 셸의 OS 접근 경계는 Android 앱 권한입니다.
-- **명령 호환성:** Python·JavaScript와 Android 호환 패키지를 대상으로 합니다. 컴파일러·JDK·Perl·SSH 클라이언트는 번들하지 않습니다. 일반 Linux/Windows 실행 파일과 네이티브 확장이 모두 호환되지는 않습니다.
-- **저장 위치:** 공유 저장소는 실행·심볼릭 링크를 제한할 수 있어 npm 설치·Git 작업에는 앱 내부 경로가 적합합니다. 일반 대화의 터미널은 앱 내부 작업 폴더를 사용합니다.
-- **편집과 복구:** 내장 텍스트 편집기는 UTF-8 1 MiB까지 지원합니다. 문서 도구는 수정 전 파일과 32 MiB 이하의 삭제 파일을 복사하지만, 셸 변경이나 디렉터리 전체 삭제까지 복구하지는 않습니다. 일반 Codex 도구·셸에는 편집기 크기 한도를 적용하지 않습니다.
-- **터미널:** 실행 중인 프로그램에 입력을 보내고 출력을 읽을 수 있습니다. 전체 화면 터미널 에뮬레이터는 아니며, Git 커밋·worktree 관리와 예약 자동화 전용 화면은 제공하지 않습니다.
-- **백그라운드:** foreground service로 작업을 유지하지만 제조사 배터리 관리에 따라 중단될 수 있습니다.
-
-## 직접 빌드하기
-
-JDK 17, Android SDK Platform 35, Build Tools 35.0.0, NDK 28.2.13676358, Python 3, Node.js 20 이상이 필요합니다. `ANDROID_HOME`은 Android SDK 경로로 설정합니다.
+`tools/prepare_runtime.py`, `tools/prepare_devtools.py`, `tools/build_native.py`로 Android 런타임을 준비하고 Android SDK와 JDK 17을 설정합니다.
 
 ```sh
-python3 tools/prepare_runtime.py
-python3 -m pip install -r tools/requirements-devtools.txt
-python3 tools/build_native.py --ndk "$ANDROID_HOME/ndk/28.2.13676358"
-python3 tools/prepare_devtools.py
-npm ci --ignore-scripts
-npm test
-npx playwright install --with-deps chromium
-npm run test:layout
-python3 -m unittest discover -s tests -p 'test_*.py'
-./gradlew assembleDebug testDebugUnitTest lintDebug assembleDebugAndroidTest
+./gradlew assembleDebug testDebugUnitTest --tests dev.mobilecodex.app.AntigravityEngineTest
+python -m unittest discover -s tests -p test_agent_provider_runtime.py
 ```
 
-APK 경로: `app/build/outputs/apk/debug/app-debug.apk`
-
-<details>
-<summary>서명과 실기기 테스트</summary>
-
-프로젝트 전용 서명을 사용하려면 빌드 프로세스에 다음 환경 변수를 제공합니다. 값이 없으면 Android 기본 debug 서명을 사용합니다.
-
-| 환경 변수 | 값 |
-| --- | --- |
-| `MOBILE_CODEX_KEYSTORE` | 키스토어의 절대 경로 |
-| `MOBILE_CODEX_KEY_ALIAS` | 키 별칭 |
-| `MOBILE_CODEX_STORE_PASSWORD` | 키스토어 비밀번호 |
-| `MOBILE_CODEX_KEY_PASSWORD` | 키 비밀번호 |
-
-키와 비밀번호는 저장소 밖에 보관하고, 업데이트를 배포할 때 같은 서명키를 유지합니다.
-
-ARM64 기기를 연결한 경우:
-
-```sh
-./gradlew connectedDebugAndroidTest
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-런타임 테스트는 별도 테스트 홈에서 실행하며 사용자의 로그인 파일을 사용하지 않습니다. 일반 x86 Linux CI에서 Android ARM64 프로세스의 실기기 실행까지 확인하는 것은 아닙니다.
-
-</details>
-
-## 문서와 출처
-
-| 문서 | 내용 |
-| --- | --- |
-| [입력과 첨부](docs/input-protocol.md) | 파일·앱 멘션, 스킬, 첨부 전달과 저장 방식 |
-| [기기 내 개발 도구](docs/android-devtools.md) | Python·Node.js·Git 패키징, 출처와 제약 |
-| [Git 런타임 수정](docs/git-runtime-fix.md) | 공유 라이브러리 로딩 문제의 원인과 검증 |
-| [업데이트와 배포](docs/app-updates.md) | APK 검증, 서명 호환성, 릴리스 준비 |
-| [검증 기록](docs/verification.md) | 테스트 결과와 실기기 미확인 항목 |
-| [서드파티 고지](THIRD_PARTY_NOTICES.md) | 포함된 구성 요소의 출처와 라이선스 |
-
-Android 실행 엔진은 [DioNanos/codex-termux](https://github.com/DioNanos/codex-termux/tree/v0.162.1-termux.1)의 `@mmmbuto/codex-cli-termux@0.162.1-termux.1`에 [Live 음성 패치](tools/runtime-patches/README.md)를 적용한 버전입니다. UI와 엔진은 [Codex app-server](https://github.com/openai/codex/tree/main/codex-rs/app-server)의 JSON-RPC 프로토콜로 연결합니다. Termux 앱을 설치하는 방식이 아니라 Android 네이티브 실행 파일을 APK에 포함해 직접 실행합니다.
-
-엔진·개발 도구의 버전과 체크섬은 [`runtime-lock.json`](tools/runtime-lock.json)과 [`devtools-lock.json`](tools/devtools-lock.json)에 고정합니다. Android 패키징에 필요한 실행 파일 이름과 라이브러리 참조를 조정하며, 준비 스크립트와 변경 사항을 저장소에 포함합니다. 원본 LICENSE·NOTICE는 APK에, 개발 도구의 대응 소스는 빌드 산출물에 포함합니다. 재배포 시에도 해당 고지와 소스를 함께 제공하세요.
-
-인증 정보는 앱 비공개 저장소에 보관하며 Android 백업·기기 전송에서 제외합니다. 저장소에는 앱 소스·에셋·테스트·빌드 설정을 관리하고, 개인 설정·로그·서명키·인증 파일·빌드 산출물은 커밋하지 않습니다.
-
-## 라이선스와 기여
-
-Mobile Codex의 자체 작성 코드와 독자적으로 제작한 아트워크는 **[GPL-3.0-only](LICENSE)**로 제공합니다. Copyright © 2026 nokryong and contributors. 서드파티 구성 요소에는 각각의 라이선스가 유지되며, 이 라이선스가 제삼자의 상표 사용 권리를 부여하지는 않습니다. [서드파티 고지](THIRD_PARTY_NOTICES.md)를 함께 확인하세요.
-
-버그 제보, 코드 개선과 번역 기여를 환영합니다. 자체 코드에 대한 기여는 GPL-3.0-only로 제공됩니다. 제보에는 기기·Android·앱 버전과 재현 방법을 포함하고 인증 정보와 개인 내용을 제거해 주세요. 번역 방법은 [Localization](docs/localization.md)에 정리했습니다.
+GPL-3.0 라이선스를 따릅니다. 원본 Mobile Codex의 저작권 및 제3자 고지는 LICENSE와 THIRD_PARTY_NOTICES.md에 보존합니다.

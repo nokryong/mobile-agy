@@ -3,7 +3,6 @@
 (() => {
   'use strict';
   const AGENTS = [
-    {id:'claude', provider:'claude', name:'Claude', account:'Claude Code'},
     {id:'gemini', provider:'agy', name:'Gemini', account:'Antigravity (Gemini)'},
   ];
   const EFFORTS = {none:'None', minimal:'Minimal', low:'Light', medium:'Medium', high:'High', xhigh:'Extra High', max:'Max', ultra:'Ultra'};
@@ -111,9 +110,9 @@
       const packs = (getCharacters()?.packs || []).filter(p => p.valid !== false);
       const character = select([{id:'', label:t('글자 아이콘')}, ...packs.map(p => ({id:p.id, label:p.name || p.id}))], agent.character || '', agent.name + ' ' + t('캐릭터'));
       character.onchange = () => setAgents([{id:agent.id, character:character.value}]);
-      box.append(field(t('모델'), model), field(t('추론'), effort), field(t('권한'), mode), field(t('승인 방식'), approval), field(t('캐릭터'), character));
+      box.append(field(t('권한'), mode), field(t('승인 방식'), approval), field(t('캐릭터'), character));
       if (info.state && info.state !== 'ready') box.append(el('p', t(PROVIDER_STATE[info.state] || '확인 전') + (info.reason ? ' · ' + info.reason : ''), 'agent-warning'), btn(t('계정 연결'), openAccounts));
-      box.append(remove);
+
       return box;
     }
     function card(id, name, detail, settings, character = '') {
@@ -130,7 +129,7 @@
     }
     function renderAvatars() {
       const target = $('agents-avatars'); if (!target) return;
-      target.replaceChildren(avatar('codex', 'Codex'), ...agents().map(a => avatar(a.id, a.name, a.character)));
+      target.replaceChildren(...agents().map(a => avatar(a.id, a.name, a.character)));
       $('agents-toggle').classList.toggle('grouped', agents().length > 0);
     }
     function renderPanel() {
@@ -142,7 +141,7 @@
       if (signature === panelSignature || (panel.contains(document.activeElement) && document.activeElement.tagName === 'SELECT')) return;
       panelSignature = signature;
       const modelName = id => (state.models || []).find(m => (m.model || m.id) === id)?.displayName || id;
-      const list = [card('codex', 'Codex', modelName($('model').value), codexSettings)];
+      const list = [];
       for (const agent of agents()) list.push(card(agent.id, agent.name, agent.model || t(PROVIDER_STATE[cap(agent.id).state] || '확인 전'), () => agentSettings(agent), agent.character));
       $('agents-list').replaceChildren(...list);
       $('agents-invite').disabled = AGENTS.every(a => agents().some(x => x.id === a.id));
@@ -194,7 +193,7 @@
     }
 
     // ---- Account cards and CLI setup (Settings → Account) ------------------------------
-    const providerIds = ['claude', 'agy'];
+    const providerIds = ['agy'];
     function setupState(id) { if (!setupStates.has(id)) setupStates.set(id, {running:false, text:'', action:'login'}); return setupStates.get(id); }
     /** Claude's /usage rows are English sentences; name the common ones in the app's language. */
     function usageLabel(label) {
@@ -242,7 +241,7 @@
         card.append(heading, detail, usage, actions); container.append(card); accountCards.set(id, {status:state, detail, login, install, refresh, usage});
       }
       const prerequisite = el('div', null, 'provider-account-prerequisite');
-      prerequisite.append(el('p', t('Claude Code·Antigravity는 앱 내 Linux 환경 설치 및 활성화가 필요합니다.'), 'muted'), btn(t('Linux 환경 설정'), openLinuxSettings));
+      prerequisite.append(el('p', t('Antigravity는 앱 내 Linux 환경 설치 및 활성화가 필요합니다.'), 'muted'), btn(t('Linux 환경 설정'), openLinuxSettings));
       container.append(prerequisite); renderAccounts();
     }
     function setupDialog(label) {
@@ -349,7 +348,7 @@
     /** Participants in a mention autocomplete: everyone in this chat, then @all. */
     function mentionChoices(query) {
       if (!agents().length) return [];
-      const people = [{id:'codex', name:'Codex'}, ...agents().map(a => ({id:a.id, name:a.name})), {id:'all', name:t('모두')}];
+      const people = agents().map(a => ({id:a.id, name:a.name}));
       const q = String(query || '').toLowerCase();
       return people.filter(p => !q || p.id.startsWith(q) || p.name.toLowerCase().startsWith(q));
     }

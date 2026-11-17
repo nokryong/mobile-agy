@@ -54,7 +54,7 @@ final class AppUpdates {
         } catch(Exception ignored){candidate=null;ready=false;}
     }
     private PackageInfo installed() throws PackageManager.NameNotFoundException { return context.getPackageManager().getPackageInfo(context.getPackageName(),PackageManager.GET_SIGNING_CERTIFICATES); }
-    private String repository(){return prefs.getString("repository","nokryong/mobile-codex");}
+    private String repository(){return prefs.getString("repository","nokryong/mobile-agy");}
     private File apk(){return new File(directory,candidate.optString("sha256")+".apk");}
     synchronized JSONObject snapshot() {
         String version="";long code=0;try{PackageInfo current=installed();version=current.versionName;code=current.getLongVersionCode();}catch(Exception ignored){}
