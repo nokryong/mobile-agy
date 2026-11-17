@@ -49,14 +49,8 @@
             </intent-filter>
         </activity>
         <receiver android:name=".CodexNotificationReceiver" android:exported="false" />
-        <receiver android:name=".UsageWidgetProvider$Codex" android:exported="false" android:label="@string/codex_usage_widget">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/codex_usage_widget" />
-        </receiver>
-        <receiver android:name=".UsageWidgetProvider$Claude" android:exported="false" android:label="@string/claude_usage_widget">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/claude_usage_widget" />
-        </receiver>
+
+
         <receiver android:name=".UsageWidgetProvider$Gemini" android:exported="false" android:label="@string/gemini_usage_widget">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/gemini_usage_widget" />

@@ -20,7 +20,7 @@ function start(p) {
   const provider=providers[p.provider];if(!provider)throw new Error('지원하지 않는 에이전트입니다.');
   const runId=String(p.runId||'');if(!/^[A-Za-z0-9-]{1,64}$/.test(runId)||runs.has(runId))throw new Error('에이전트 실행 ID가 올바르지 않습니다.');
   if(!/^[A-Za-z0-9_-]{1,80}$/.test(String(p.sessionId||'')))throw new Error('대화 ID가 올바르지 않습니다.');
-  const prompt=String(p.prompt||'');if(!prompt||prompt.length>200000)throw new Error('에이전트에게 보낼 문맥이 비어 있거나 너무 깁니다.');
+  const prompt=String(p.prompt||'');if(!prompt||prompt.length>300000)throw new Error('에이전트에게 보낼 문맥이 비어 있거나 너무 깁니다.');
   // The CLI provider calls this pair a room and a member; here the room is one chat.
   const room={id:p.sessionId,runId,mode:p.mode||'chat',projectKey:p.projectKey||''};
   const member={id:p.memberId,model:String(p.model||''),effort:String(p.effort||''),approvalMode:p.approvalMode||'ask',session:{id:String(p.nativeSession||'')}};

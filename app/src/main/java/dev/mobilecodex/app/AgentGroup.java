@@ -111,7 +111,10 @@ final class AgentGroup {
     private static String line(JSONObject message) {
         String text = message.optString("text").trim();
         JSONArray files = message.optJSONArray("attachments");
-        if (files != null && files.length() > 0) text += (text.isEmpty() ? "" : "\n") + "(첨부 " + files.length() + "개 · Codex만 열람 가능)";
+        if (files != null) for (int i = 0; i < files.length(); i++) {
+            JSONObject file = files.optJSONObject(i); if (file == null) continue;
+            text += "\nAttached file, read with mobile_attachment: " + obj("id", file.optString("id"), "name", file.optString("name"), "mime", file.optString("mime"));
+        }
         return "[" + speaker(message) + "] " + text;
     }
     static int indexOf(JSONArray messages, String id) {
@@ -162,7 +165,7 @@ final class AgentGroup {
         String access = switch (mode) {
             case "read" -> "작업 폴더는 mobile_* 도구로 읽기·검색만 할 수 있습니다.";
             case "write" -> "작업 폴더는 mobile_* 도구로 다룰 수 있습니다. 수정·명령은 앱의 승인 설정과 작업 차례를 따릅니다.";
-            default -> "파일이나 휴대폰 도구는 사용할 수 없습니다. 대화로만 답하세요.";
+            default -> "공유된 첨부 파일은 mobile_attachment 도구로 읽을 수 있습니다. 프로젝트나 휴대폰 도구는 사용할 수 없습니다.";
         };
         String header = "당신은 Mobile-agy의 Antigravity 에이전트입니다.\n"
             + access + " 대화 기록을 읽고 요청을 수행하세요. 도구 결과 없이 작업 성공을 주장하지 마세요.\n"

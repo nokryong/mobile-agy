@@ -11,7 +11,7 @@ import static dev.mobilecodex.app.core.Json.*;
 /** Public GitHub release metadata. Downloaded APK identity is independently checked before installation. */
 public final class UpdateCatalog {
     private static final Pattern VERSION = Pattern.compile("^(\\d{1,9})\\.(\\d{1,9})\\.(\\d{1,9})(?:-(alpha|beta|rc)(?:[.-]?(\\d{1,9}))?)?(?:\\+[A-Za-z0-9.-]+)?$");
-    private static final Pattern APK = Pattern.compile("^mobile-codex-(.+)-arm64\\.apk$");
+    private static final Pattern APK = Pattern.compile("^mobile-agy-(.+)-arm64\\.apk$");
     public static String repository(String value) throws IOException {
         String repo = value.trim();
         if (!repo.matches("[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}") || repo.endsWith("/.") || repo.endsWith("/..")) throw new IOException(t("GitHub 저장소를 소유자/저장소 형식으로 입력해 주세요."));

@@ -109,6 +109,67 @@ class AttachmentStore {
         return metadata;
     }
     InputStream open(String id) throws Exception { return new FileInputStream(get(id).getString("path")); }
+    JSONObject readForAgent(String id, int offset, int pageIndex) throws Exception {
+        JSONObject metadata = get(id);
+        File file = new File(metadata.getString("path"));
+        if (metadata.optString("mime").equals("application/pdf") || file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
+            try (android.os.ParcelFileDescriptor descriptor = android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY);
+                 android.graphics.pdf.PdfRenderer renderer = new android.graphics.pdf.PdfRenderer(descriptor)) {
+                if (pageIndex < 0 || pageIndex >= renderer.getPageCount()) throw new IOException("Invalid PDF page");
+                try (android.graphics.pdf.PdfRenderer.Page page = renderer.openPage(pageIndex)) {
+                    float scale = Math.min(1f, 1024f / Math.max(page.getWidth(), page.getHeight()));
+                    android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(Math.max(1, Math.round(page.getWidth() * scale)), Math.max(1, Math.round(page.getHeight() * scale)), android.graphics.Bitmap.Config.ARGB_8888);
+                    bitmap.eraseColor(android.graphics.Color.WHITE);
+                    page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                    JSONObject result = imageForAgent(bitmap);
+                    result.getJSONArray("mcpContent").put(obj("type", "text", "text", "PDF page " + (pageIndex + 1) + " of " + renderer.getPageCount() + ". Request other pages using the zero-based page parameter."));
+                    return result;
+                }
+            }
+        }
+        if (metadata.optJSONObject("image") != null) {
+            android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            options.inSampleSize = 1;
+            while (Math.max(options.outWidth, options.outHeight) / options.inSampleSize > 1024) options.inSampleSize *= 2;
+            options.inJustDecodeBounds = false;
+            android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            if (bitmap == null) throw new IOException("Cannot decode attachment image");
+            return imageForAgent(bitmap);
+        }
+        if (offset < 0 || offset > file.length()) throw new IOException("Invalid attachment offset");
+        byte[] bytes = new byte[(int)Math.min(65536, file.length() - offset)];
+        try (RandomAccessFile input = new RandomAccessFile(file, "r")) { input.seek(offset); input.readFully(bytes); }
+        String mime = metadata.optString("mime", "application/octet-stream");
+        boolean text = mime.startsWith("text/") || mime.contains("json") || mime.contains("xml") || mime.contains("javascript");
+        int consumed = bytes.length;
+        String content = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+        if (text) {
+            java.nio.ByteBuffer source = java.nio.ByteBuffer.wrap(bytes);
+            java.nio.CharBuffer decoded = java.nio.CharBuffer.allocate(bytes.length + 1);
+            java.nio.charset.CoderResult result = StandardCharsets.UTF_8.newDecoder().decode(source, decoded, false);
+            text = !result.isError() && (source.position() == bytes.length || offset + bytes.length < file.length());
+            if (text) { consumed = source.position(); decoded.flip(); content = decoded.toString(); }
+        }
+        JSONObject data = obj("name", metadata.optString("name"), "mime", mime, "offset", offset,
+            "nextOffset", offset + consumed, "size", file.length(), "complete", offset + consumed == file.length(),
+            "encoding", text ? "utf-8" : "base64", "content", content);
+        return obj("mcpContent", array(obj("type", "text", "text", data.toString())));
+    }
+    private static JSONObject imageForAgent(android.graphics.Bitmap bitmap) throws Exception {
+        ByteArrayOutputStream encoded = new ByteArrayOutputStream();
+        String mime = "image/png";
+        try {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, encoded);
+            if (encoded.size() > 1024 * 1024) {
+                encoded.reset(); bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, encoded); mime = "image/jpeg";
+            }
+        } finally { bitmap.recycle(); }
+        if (encoded.size() > 1024 * 1024) throw new IOException("Image exceeds the tool response limit");
+        return obj("mcpContent", array(obj("type", "image", "mimeType", mime, "data",
+            android.util.Base64.encodeToString(encoded.toByteArray(), android.util.Base64.NO_WRAP))));
+    }
     boolean owns(File file) throws IOException {
         File canonical = file.getCanonicalFile(), root = directory.getCanonicalFile();
         return canonical.isFile() && canonical.getPath().startsWith(root.getPath() + File.separator);

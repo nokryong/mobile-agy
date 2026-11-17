@@ -318,7 +318,7 @@
   const projectWorkBusy = () => !!state.busy || !!state.proBusy || (state.sessions || []).some(session => !!session.busy);
   const generalFolderAvailable = (workspace = state.workspace) => !workspace?.selected && (workspace?.hasLocalFolder === true || workspace?.available === true);
   const workspaceFilesAvailable = (workspace = state.workspace) => workspace?.selected ? workspace.available !== false : generalFolderAvailable(workspace);
-  const workspaceFolderLabel = (workspace = state.workspace) => workspace?.selected ? (workspace.name || t('작업 폴더 선택')) : (workspace.name || 'Codex');
+  const workspaceFolderLabel = (workspace = state.workspace) => workspace?.selected ? (workspace.name || t('작업 폴더 선택')) : (workspace.name || 'Antigravity');
   function fastTier() {
     const selected = $('model').value;
     const model = selected ? state.models.find(m => (m.model || m.id) === selected) : state.models.find(m => m.isDefault);
@@ -501,7 +501,7 @@
   }
   function drawAutocomplete(items, messages = []) {
     const target = $('autocomplete'); target.replaceChildren(); autocomplete.items = items; autocomplete.index = items.length ? 0 : -1;
-    target.append(node('div', autocomplete.type === '$' ? t('스킬') : t('파일 및 앱'), 'autocomplete-heading'));
+    target.append(node('div', autocomplete.type === '$' ? t('스킬') : t('파일'), 'autocomplete-heading'));
     for (const [index, item] of items.entries()) {
       const row = button('', () => chooseAutocomplete(item), 'autocomplete-item'); row.setAttribute('role', 'option');
       row.id = 'context-option-' + index; row.dataset.index = String(index);
@@ -523,28 +523,9 @@
     autocomplete.type = type; autocomplete.token = type + query;
     const current = () => version === autocomplete.version && scope === draftScope;
     const retry = {label:t('다시 불러오기'), detail:t('사용 가능한 목록을 새로 확인합니다.'), run:() => queryAutocomplete(directory)};
-    drawAutocomplete([], [t('사용 가능한 ') + (type === '$' ? t('스킬') : t('파일 및 앱')) + t('을 불러오는 중…')]);
-    if (type === '$') {
-      try {
-        const result = await rpc('skills/list', {cwds:state.cwd ? [state.cwd] : [], forceReload:true});
-        if (!current()) return;
-        const items = [], seen = new Set(), messages = [];
-        for (const group of result.data || []) {
-          for (const error of group.errors || []) messages.push(error.message || t('일부 스킬을 읽지 못했습니다.'));
-          for (const skill of group.skills || []) {
-            if (skill.enabled === false || !skill.name || !skill.path || seen.has(skill.path)) continue;
-            if (query && !(skill.name + ' ' + (skill.description || '')).toLowerCase().includes(query.toLowerCase())) continue;
-            seen.add(skill.path); items.push({kind:'skill', name:skill.name, path:skill.path, label:'$' + skill.name, detail:skill.description || skill.path});
-          }
-        }
-        if (!items.length) messages.push(query ? t('일치하는 스킬이 없습니다.') : t('사용 가능한 스킬이 없습니다. 스킬 폴더를 가져와 추가하세요.'));
-        drawAutocomplete([...items, {label:t('스킬 가져오기'), detail:t('SKILL.md가 들어 있는 폴더 선택'), run:() => { hideAutocomplete(); $('skill-import').click(); }}], messages);
-      } catch (error) {
-        if (current()) drawAutocomplete([retry], [t('스킬 목록을 불러오지 못했습니다. ') + error.message]);
-      }
-      return;
-    }
-    const sections = {files:[], apps:[]}, messages = {files:t('파일을 불러오는 중…'), apps:t('앱을 불러오는 중…')};
+    drawAutocomplete([], [t('사용 가능한 ') + (type === '$' ? t('스킬') : t('파일')) + t('을 불러오는 중…')]);
+    if (type === '$') return hideAutocomplete();
+    const sections = {files:[], apps:[]}, messages = {files:t('파일을 불러오는 중…'), apps:''};
     // Calling a participant is plain text in the message; Engine reads it to pick who answers.
     const people = directory ? [] : (agentUi?.mentionChoices(query) || []).map(p => ({label:'@' + p.id, detail:p.id === 'all' ? t('참가자 모두 호출') : t('{name} 호출', {name:p.name}), run:() => insertParticipant(p.id)}));
     const render = () => { if (current()) drawAutocomplete([...people, ...sections.files, ...sections.apps], Object.values(messages).filter(Boolean)); };
@@ -561,12 +542,7 @@
       messages.files = !state.workspace?.selected ? t('프로젝트를 선택하면 파일 목록도 표시됩니다.') : sections.files.length ? '' : t('일치하는 파일이 없습니다.');
       render();
     }).catch(error => { if (current()) { messages.files = t('파일 목록을 불러오지 못했습니다. ') + error.message; sections.files = [retry]; render(); } });
-    rpc('app/list', {}).then(result => {
-      if (!current()) return;
-      sections.apps = (result.data || result.apps || []).filter(x => x.isAccessible && x.isEnabled && (!query || (x.name || x.id || '').toLowerCase().includes(query.toLowerCase())))
-        .map(x => ({kind:'mention', name:x.name || x.id, path:'app://' + x.id, label:'@' + (x.name || x.id), detail:t('연결된 앱')}));
-      messages.apps = sections.apps.length ? '' : t('사용 가능한 연결 앱이 없습니다.'); render();
-    }).catch(error => { if (current()) { messages.apps = t('앱 목록을 불러오지 못했습니다. ') + error.message; if (!sections.files.includes(retry)) sections.apps = [retry]; render(); } });
+
   }
   async function chooseAttachment() {
     const key = draftKeyFor(), result = await call('attachments.pick', {draftKey:key});
@@ -1040,7 +1016,7 @@
     return chosen ? characterState.packs.find(p => p.id === chosen && p.valid !== false) || null : null;
   }
   function agentSpeaker(m) {
-    const name = m.agent ? (m.agentName || m.agent) : 'Codex', label = node('div', null, 'agent-speaker');
+    const name = m.agent ? (m.agentName || m.agent) : 'Antigravity', label = node('div', null, 'agent-speaker');
     const avatar = node('span', name.slice(0, 1), 'agent-avatar'); avatar.dataset.agent = m.agent || 'codex'; avatar.setAttribute('aria-hidden', 'true');
     label.append(avatar, node('strong', name)); return label;
   }
@@ -1168,7 +1144,7 @@
     if ($('linux-environment-card')) return;
     const tools = document.querySelector('[data-settings-panel="tools"]'); if (!tools) return;
     const card = node('section', null, 'devtools-card linux-environment-card'); card.id = 'linux-environment-card';
-    const heading = node('div', null, 'card-heading'); const copy = node('span'), title = node('strong', t('Linux 환경')), description = node('small', t('필요할 때만 내려받아 Codex와 터미널 명령에 사용합니다. 프로젝트 파일은 그대로 유지됩니다.')); title.id = 'linux-environment-title'; description.id = 'linux-environment-description'; copy.append(title, description); heading.append(copy);
+    const heading = node('div', null, 'card-heading'); const copy = node('span'), title = node('strong', t('Linux 환경')), description = node('small', t('필요할 때만 내려받아 Antigravity와 터미널 명령에 사용합니다. 프로젝트 파일은 그대로 유지됩니다.')); title.id = 'linux-environment-title'; description.id = 'linux-environment-description'; copy.append(title, description); heading.append(copy);
     const details = node('p', '', 'muted'); details.id = 'linux-environment-details';
     const status = node('p', '', 'muted'); status.id = 'linux-environment-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
     const progress = node('progress'); progress.id = 'linux-environment-progress'; progress.hidden = true; progress.setAttribute('aria-label', t('Linux 환경 설치 진행률'));
@@ -1179,7 +1155,7 @@
     actions.append(install, cancel, remove);
     const enabled = node('input'); enabled.id = 'linux-enabled'; enabled.type = 'checkbox'; enabled.setAttribute('role', 'switch');
     const toggle = node('label', null, 'toggle-switch linux-environment-toggle'); toggle.append(enabled, node('span', null, 'toggle-track'));
-    const enableRow = node('div', null, 'settings-row linux-enable-row'); const enableCopy = node('span'), enableTitle = node('strong', t('Linux 환경 사용')), enableDescription = node('small', t('Codex와 기본 터미널에서 Linux 명령을 실행합니다.')); enableTitle.id = 'linux-enable-title'; enableDescription.id = 'linux-enable-description'; enableCopy.append(enableTitle, enableDescription); enableRow.append(enableCopy, toggle);
+    const enableRow = node('div', null, 'settings-row linux-enable-row'); const enableCopy = node('span'), enableTitle = node('strong', t('Linux 환경 사용')), enableDescription = node('small', t('Antigravity와 기본 터미널에서 Linux 명령을 실행합니다.')); enableTitle.id = 'linux-enable-title'; enableDescription.id = 'linux-enable-description'; enableCopy.append(enableTitle, enableDescription); enableRow.append(enableCopy, toggle);
     card.append(heading, details, status, progress, actions, enableRow); tools.append(card);
     install.addEventListener('click', async () => { if (linuxRequestPending) return; linuxRequestPending = true; try { linuxStatusError = ''; renderLinux(); const result = await call('linux.install'); if (linuxStatus(result)) state.linux = result; } catch (error) { linuxStatusError = error.message || t('Linux 환경을 설치하지 못했습니다. 다시 시도해 주세요.'); } finally { linuxRequestPending = false; renderLinux(); } });
     cancel.addEventListener('click', async () => { try { await call('linux.cancel'); } catch (error) { linuxStatusError = error.message; renderLinux(); } });
@@ -1191,7 +1167,7 @@
     const info = linuxStatus(state.linux), supported = !!info && info.supported !== false;
     card.hidden = false;
     const details = $('linux-environment-details'), status = $('linux-environment-status'), progress = $('linux-environment-progress'), install = $('linux-install'), cancel = $('linux-cancel'), remove = $('linux-remove'), enabled = $('linux-enabled'), enableRow = card.querySelector('.linux-enable-row');
-    $('linux-environment-title').textContent = t('Linux 환경'); $('linux-environment-description').textContent = t('필요할 때만 내려받아 Codex와 터미널 명령에 사용합니다. 프로젝트 파일은 그대로 유지됩니다.'); $('linux-enable-title').textContent = t('Linux 환경 사용'); $('linux-enable-description').textContent = t('Codex와 기본 터미널에서 Linux 명령을 실행합니다.'); cancel.textContent = t('취소'); remove.textContent = t('Linux 환경 삭제');
+    $('linux-environment-title').textContent = t('Linux 환경'); $('linux-environment-description').textContent = t('필요할 때만 내려받아 Antigravity와 터미널 명령에 사용합니다. 프로젝트 파일은 그대로 유지됩니다.'); $('linux-enable-title').textContent = t('Linux 환경 사용'); $('linux-enable-description').textContent = t('Antigravity와 기본 터미널에서 Linux 명령을 실행합니다.'); cancel.textContent = t('취소'); remove.textContent = t('Linux 환경 삭제');
     if (!supported) {
       details.textContent = t('이 앱 버전에서는 Linux 환경을 사용할 수 없습니다.'); status.textContent = info?.error || ''; status.classList.toggle('error', !!info?.error); progress.hidden = true; install.hidden = true; cancel.hidden = true; remove.hidden = true; enableRow.hidden = true; return;
     }
@@ -1789,21 +1765,14 @@
     ring.append(node('span', large ? Math.round(remaining) + '%' : '')); return ring;
   }
   function renderQuota() {
-    const logged = C.isLoggedIn(state.account), rows = usageRows(state.rateLimits), row = rows[0];
-    const ring = $('quota-ring'), value = $('quota-ring-value'), percent = $('quota-percent'), caption = $('quota-caption');
-    if (!logged) {
-      // Saved display metadata is not authentication. Only signed_out invites login.
-      const saved = (state.accounts || []).find(profile => profile.active);
-      ring.style.setProperty('--remaining','0'); ring.setAttribute('aria-label',t('사용 한도 정보 없음')); value.textContent='';
-      percent.textContent = accountNeedsLogin() ? t('계정 연결') : (saved?.email || 'Codex');
-      caption.textContent = accountNeedsLogin() ? t('ChatGPT로 로그인') : (saved?.planType || t('계정 설정')); return;
-    }
-    if (!row) {
-      ring.style.setProperty('--remaining','0'); ring.setAttribute('aria-label',t('사용 한도 정보 없음')); value.textContent=''; percent.textContent='–%'; caption.textContent=state.account.email || state.account.planType || t('한도 조회 전'); return;
-    }
-    const remaining = Math.round(row.remaining);
-    ring.style.setProperty('--remaining',String(remaining)); ring.setAttribute('aria-label',t('남은 한도 ') + remaining + '%'); value.textContent='';
-    percent.textContent=remaining + '%'; caption.textContent=row.resetTime ? t('{time} 초기화', {time:row.resetTime}) : t('초기화 시각 확인 불가');
+    const provider = (state.agentProviders || []).find(p => p.id === 'agy');
+    const remaining = provider?.usage?.find(row => Number.isFinite(row.remainingPercent))?.remainingPercent;
+    const ring = $('quota-ring');
+    ring.style.setProperty('--remaining', String(remaining ?? 0));
+    $('quota-ring-value').textContent = '';
+    $('quota-percent').textContent = remaining == null ? 'Antigravity' : Math.round(remaining) + '%';
+    $('quota-caption').textContent = state.authState === 'signed_in' ? t('계정 설정') : t('Google 계정 연결');
+    ring.setAttribute('aria-label', remaining == null ? t('사용 한도 정보 없음') : t('남은 한도 ') + Math.round(remaining) + '%');
   }
   /** One usage limit as a ring gauge; shared by Codex and the invited agents' accounts. */
   function usageGauge(row) {
@@ -2104,7 +2073,7 @@
     }
     if (!entry) return;
     const [key, req] = entry; displayedRequest = key;
-    $('request-title').textContent = req.method.includes('requestUserInput') ? t('Codex 질문') : req.method.includes('requestApproval') ? t('작업 승인') : t('Codex 요청');
+    $('request-title').textContent = req.method.includes('requestUserInput') ? t('Antigravity 질문') : req.method.includes('requestApproval') ? t('작업 승인') : t('Antigravity 요청');
     $('request-reason').textContent = req.params.reason || req.params.message || req.method;
     $('request-detail').textContent = JSON.stringify(req.params, null, 2); $('request-fields').replaceChildren(); $('request-actions').replaceChildren();
     const complete = async result => { result = await result; await call('rpc.respond', {key, result}); requestQueue.delete(key); displayedRequest = null; close('request-dialog'); nextRequest(); };

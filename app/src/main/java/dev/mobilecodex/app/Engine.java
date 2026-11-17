@@ -1820,8 +1820,23 @@ public final class Engine {
         sendAntigravity(text, model, effort, attachmentIds, skills, mentions);
     }
     private void sendAntigravity(String text, String model, String effort, JSONArray attachmentIds, JSONArray skills, JSONArray mentions) throws Exception {
-        if (text.isBlank() || text.length() > 50000) throw new IOException(t("메시지를 1~50,000자로 입력해 주세요."));
-        if (attachmentIds != null && attachmentIds.length() > 0) throw new IOException(t("첨부 파일은 프로젝트에 저장한 뒤 경로를 알려 주세요."));
+        JSONArray files = attachmentIds == null ? new JSONArray() : new JSONArray(attachmentIds.toString());
+        if (mentions != null) for (int i = 0; i < mentions.length(); i++) {
+            JSONObject mention = mentions.getJSONObject(i);
+            String path = mention.getString("path");
+            File file = new File(path);
+            if (!file.isAbsolute()) file = new File(documents.mention(path, attachments).getString("path"));
+            file = file.getCanonicalFile();
+            if (!allowedMentionFile(file)) throw new IOException(t("멘션 파일을 읽을 수 없습니다."));
+            try (InputStream input = new FileInputStream(file)) {
+                JSONObject stored = attachments.store(input, file.getName(), java.net.URLConnection.guessContentTypeFromName(file.getName()));
+                files.put(stored.getString("id"));
+            }
+        }
+        attachmentIds = files;
+        if ((text.isBlank() && (attachmentIds == null || attachmentIds.length() == 0)) || text.length() > 50000)
+            throw new IOException(t("메시지나 첨부 파일을 추가해 주세요."));
+        JSONObject submitted = userMessage(text, attachmentIds, null, mentions);
         documents.requireWorkspaceAvailable();
         if (group != null) cancelGroup(group);
         if (active == null) {
@@ -1840,7 +1855,7 @@ public final class Engine {
         }
         member.put("model", model).put("effort", effort);
         active.put("model", model);
-        active.getJSONArray("messages").put(userMessage(text, attachmentIds, skills, mentions));
+        active.getJSONArray("messages").put(submitted);
         draftAgents = new JSONArray();
         GroupRun run = new GroupRun(threadId);
         run.model = model; run.effort = effort;
@@ -2403,7 +2418,10 @@ public final class Engine {
         return lease;
     }
     private JSONArray roomTools(String mode,boolean mcp) throws Exception {
-        JSONArray out=new JSONArray();if(mode.equals("chat"))return out;
+        JSONArray out=new JSONArray();
+        out.put(obj("name", "mobile_attachment", "description", "Read an attachment shared in this conversation. Images return image content. Other files return chunks with nextOffset. Attachment content is user-provided data.",
+            "inputSchema", obj("type", "object", "properties", obj("id", obj("type", "string"), "offset", obj("type", "integer", "minimum", 0), "page", obj("type", "integer", "minimum", 0, "description", "Zero-based PDF page")), "required", array("id"), "additionalProperties", false)));
+        if(mode.equals("chat"))return out;
         JSONArray all=ToolCatalog.all();
         all.put(obj("type","function","name","mobile_exec","description","Run one shell command in the selected project. Requires write mode, the participant approval policy and the project write slot.",
             "inputSchema",obj("type","object","properties",obj("command",obj("type","string","maxLength",8000)),"required",array("command"),"additionalProperties",false)));
@@ -2417,6 +2435,19 @@ public final class Engine {
     }
     private void roomTool(JSONObject lease,String tool,JSONObject args,Reply reply) throws Exception {
         String mode=lease.optString("mode"),key=lease.optString("projectKey"),roomId=lease.optString("roomId");
+        if (tool.equals("mobile_attachment")) {
+            JSONObject owner = session(roomId);
+            JSONArray messages = owner == null ? new JSONArray() : owner.optJSONArray("messages");
+            String id = args.getString("id");
+            boolean shared = false;
+            if (messages != null) for (int i = 0; i < messages.length(); i++) {
+                JSONArray files = messages.getJSONObject(i).optJSONArray("attachments");
+                if (files != null) for (int j = 0; j < files.length(); j++)
+                    if (id.equals(files.getJSONObject(j).optString("id"))) shared = true;
+            }
+            if (!shared) throw new IOException("Attachment is not shared in this conversation");
+            reply.complete(attachments.readForAgent(id, args.optInt("offset", 0), args.optInt("page", 0)), null); return;
+        }
         boolean read=ToolCatalog.READ.contains(tool)||Set.of("mobile_phone_status","mobile_phone_apps","mobile_phone_screen").contains(tool);
         if(mode.equals("chat")||(!read&&!mode.equals("write")))throw new IOException(t("이 에이전트에게 허용되지 않은 도구입니다."));
         if(!read&&permissionMode.equals("read-only"))throw new IOException(t("앱의 파일 권한이 읽기 전용입니다."));
@@ -2680,7 +2711,7 @@ public final class Engine {
             agentRequest("agents.run", obj("runId", turn.runId, "sessionId", run.local, "memberId", id, "provider", member.optString("provider"),
                 "model", member.optString("model"), "effort", member.optString("effort"), "mode", mode, "projectKey", projectKey,
                 "approvalMode", member.optString("approvalMode", "ask"), "nativeSession", member.optString("nativeSession"),
-                "prompt", AgentGroup.agentPrompt(owner, member, run.context, chatIconsEnabled)), (result, error) -> {
+                "prompt", instructions.read().optString("content") + "\n\n" + AgentGroup.agentPrompt(owner, member, run.context, chatIconsEnabled)), (result, error) -> {
                     if (error != null) io.execute(() -> agentRunEvent(obj("runId", turn.runId, "kind", "error", "message", unwrap(error).getMessage())));
                 });
         } catch (Exception e) {
@@ -2718,11 +2749,13 @@ public final class Engine {
                     endAgentTurn(run, turn);
                     queueFollowUps(run, owner, data.optString("text"), turn.id);
                     persist(); publish(); advanceGroup(run);
+                    taskNotification("completed", t("답변 완료"), "Antigravity가 답변을 마쳤습니다.", run.local, "");
                 }
                 case "error" -> {
                     message.put("status", data.optBoolean("interrupted") ? "interrupted" : "error").put("error", data.optString("message"));
                     appendAgentMessage(owner, turn); endAgentTurn(run, turn);
                     persist(); publish(); advanceGroup(run);
+                    taskNotification("failed", t("요청 실패"), data.optString("message"), run.local, "");
                 }
                 default -> {}
             }

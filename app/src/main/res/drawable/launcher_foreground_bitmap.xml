@@ -4,5 +4,5 @@
     android:insetRight="24.074074%"
     android:insetBottom="24.074074%">
     <!-- Keep the supplied mark inside the adaptive icon safe area. -->
-    <bitmap android:src="@drawable/mobile_codex_logo" android:gravity="fill" />
+    <bitmap android:src="@drawable/mobile_agy_logo" android:gravity="fill" />
 </inset>

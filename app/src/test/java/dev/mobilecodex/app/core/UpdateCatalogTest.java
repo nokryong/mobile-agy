@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.Assert.*;
 import static dev.mobilecodex.app.core.Json.*;
 public class UpdateCatalogTest {
-    private JSONObject release(String version,boolean pre){String name="mobile-codex-"+version+"-arm64.apk";return obj("tag_name","v"+version,"prerelease",pre,"body","<script>untrusted</script>","assets",array(obj("name",name,"state","uploaded","size",100,"digest","sha256:"+"ab".repeat(32),"browser_download_url","https://github.com/owner/repo/releases/download/v"+version+"/"+name)));}
+    private JSONObject release(String version,boolean pre){String name="mobile-agy-"+version+"-arm64.apk";return obj("tag_name","v"+version,"prerelease",pre,"body","<script>untrusted</script>","assets",array(obj("name",name,"state","uploaded","size",100,"digest","sha256:"+"ab".repeat(32),"browser_download_url","https://github.com/owner/repo/releases/download/v"+version+"/"+name)));}
     @Test public void numericAndPrereleaseVersionsSortCorrectly()throws Exception{
         assertTrue(UpdateCatalog.compare("0.1.11-alpha","0.1.9")>0);assertTrue(UpdateCatalog.compare("1.0.0","1.0.0-rc.2")>0);
         assertTrue(UpdateCatalog.compare("1.0.0-beta.2","1.0.0-alpha.9")>0);assertTrue(UpdateCatalog.compare("1.0.0-rc.10","1.0.0-rc.2")>0);
@@ -23,7 +23,7 @@ public class UpdateCatalogTest {
         assertEquals("0.1.12-alpha",UpdateCatalog.latest(releases,"owner/repo",true).getString("versionName"));
     }
     @Test public void rejectsWrongRepositoryUrlsDraftsAndMalformedSources()throws Exception{
-        JSONObject bad=release("9.0.0",false);bad.getJSONArray("assets").getJSONObject(0).put("browser_download_url","https://github.com/other/repo/releases/download/v9.0.0/mobile-codex-9.0.0-arm64.apk");
+        JSONObject bad=release("9.0.0",false);bad.getJSONArray("assets").getJSONObject(0).put("browser_download_url","https://github.com/other/repo/releases/download/v9.0.0/mobile-agy-9.0.0-arm64.apk");
         assertNull(UpdateCatalog.latest(array(bad,release("8.0.0",false).put("draft",true)),"owner/repo",true));
         for(String repo:List.of("../repo","owner/repo/extra","owner/..","https://github.com/a/b","a/b?token=x"))assertThrows(IOException.class,()->UpdateCatalog.repository(repo));
     }

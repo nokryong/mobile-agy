@@ -50,6 +50,16 @@ public class AttachmentStoreTest {
         assertThrows(IOException.class, () -> store.get("../codex/auth.json"));
         assertEquals(2, store.inputs(array(first.getString("id"), second.getString("id"))).length());
     }
+    @Test public void agentReceivesImageContentWhileOriginalBytesStayIntact() throws Exception {
+        byte[] bytes = android.util.Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAAMAAAACCAYAAACddGYaAAAAEUlEQVR4nGMQMgn7D8MMyBwAdJkJo6/9UVsAAAAASUVORK5CYII=", android.util.Base64.DEFAULT);
+        AttachmentStore store = store();
+        JSONObject file = store.store(new ByteArrayInputStream(bytes), "image.png", "image/png");
+        JSONObject content = store.readForAgent(file.getString("id"), 0, 0).getJSONArray("mcpContent").getJSONObject(0);
+        assertEquals("image", content.getString("type"));
+        byte[] decoded = android.util.Base64.decode(content.getString("data"), android.util.Base64.DEFAULT);
+        assertNotNull(android.graphics.BitmapFactory.decodeByteArray(decoded, 0, decoded.length));
+        assertArrayEquals(bytes, Files.readAllBytes(new File(file.getString("path")).toPath()));
+    }
     @Test public void interruptedCopyLeavesNoUsablePartialAttachment() throws Exception {
         File dir = new File(RuntimeEnvironment.getApplication().getFilesDir(), "attachments"); AttachmentStore store = store();
         int count = dir.list().length;
@@ -59,5 +69,14 @@ public class AttachmentStoreTest {
         assertEquals(count, dir.list().length);
         JSONObject good = store.store(new ByteArrayInputStream(new byte[]{9}), "good.pdf", "application/pdf");
         assertEquals(1, store.inputs(array(good.getString("id"))).length());
+    }
+    @Test public void chunkBoundaryPreservesKoreanText() throws Exception {
+        String text = "a".repeat(65535) + "한글 끝";
+        AttachmentStore store = store();
+        JSONObject file = store.store(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)), "note.txt", "text/plain");
+        JSONObject first = new JSONObject(store.readForAgent(file.getString("id"), 0, 0).getJSONArray("mcpContent").getJSONObject(0).getString("text"));
+        JSONObject second = new JSONObject(store.readForAgent(file.getString("id"), first.getInt("nextOffset"), 0).getJSONArray("mcpContent").getJSONObject(0).getString("text"));
+        assertEquals(text, first.getString("content") + second.getString("content"));
+        assertTrue(second.getBoolean("complete"));
     }
 }

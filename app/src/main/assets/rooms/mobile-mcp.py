@@ -36,7 +36,7 @@ def main():
             elif method == 'tools/call':
                 params = request.get('params', {})
                 value = relay(config, {'action': 'call', 'name': params.get('name'), 'arguments': params.get('arguments', {})})
-                result = {'content': [{'type': 'text', 'text': json.dumps(value, ensure_ascii=False)}]}
+                result = {'content': value['mcpContent']} if params.get('name') == 'mobile_attachment' else {'content': [{'type': 'text', 'text': json.dumps(value, ensure_ascii=False)}]}
             else:
                 raise RuntimeError('Unsupported MCP method')
             response = {'jsonrpc': '2.0', 'id': request['id'], 'result': result}

@@ -222,7 +222,7 @@ def arguments(provider, binary, config):
 
 def configure(provider, config, env):
     server = {'command': '/usr/bin/python3', 'args': ['/workspace/mobile-mcp.py', '/workspace/run.json']}
-    mcp = {'mcpServers': {} if config.get('mode') == 'chat' else {'mobile': server}}
+    mcp = {'mcpServers': {} if provider != 'agy' and config.get('mode') == 'chat' else {'mobile': server}}
     write_json(Path('/workspace/mcp.json'), mcp)
     if provider == 'agy':
         # This HOME belongs only to this integration; never rewrite a user's
@@ -233,7 +233,7 @@ def configure(provider, config, env):
         settings.update({
             'toolPermission': 'request-review', 'artifactReviewPolicy': 'asks-for-review',
             'permissions': {'deny': ['command(*)', 'read_file(*)', 'write_file(*)', 'read_url(*)'],
-                            'allow': [] if config.get('mode') == 'chat' else ['mcp(mobile/*)']}})
+                            'allow': ['mcp(mobile/*)']}})
         write_json(settings_path, settings)
         write_json(Path('/workspace/.agents/mcp_config.json'), mcp)
         agent = Path('/workspace/.agents/agents/mobile-room.md')

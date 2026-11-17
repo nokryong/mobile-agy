@@ -40,6 +40,16 @@ public class AntigravityEngineTest {
         method.setAccessible(true);
         engine.io.submit(() -> { method.invoke(engine, data); return null; }).get(10, TimeUnit.SECONDS);
     }
+    private JSONObject attachment(String id) throws Exception {
+        CompletableFuture<JSONObject> result = new CompletableFuture<>();
+        Method method = Engine.class.getDeclaredMethod("roomHost", String.class, JSONObject.class, Engine.Reply.class);
+        method.setAccessible(true);
+        method.invoke(engine, "host.tool", obj("runId", runId, "roomId", request.optString("sessionId"),
+            "name", "mobile_attachment", "arguments", obj("id", id)), (Engine.Reply)(value, error) -> {
+                if (error == null) result.complete(value); else result.completeExceptionally(error);
+            });
+        return result.get(10, TimeUnit.SECONDS);
+    }
     @After public void close() throws Exception {
         engine.io.shutdownNow();
         Field timer = Engine.class.getDeclaredField("approvalTimer"); timer.setAccessible(true);
@@ -61,5 +71,21 @@ public class AntigravityEngineTest {
         assertEquals("native-agy-session", request.getString("nativeSession"));
         call("chat.stop", obj());
         assertFalse(call("state", obj()).getBoolean("busy"));
+    }
+    @Test public void attachmentOnlyPromptReadsSharedFileAndRejectsUnsharedFile() throws Exception {
+        var context = RuntimeEnvironment.getApplication();
+        AttachmentStore store = new AttachmentStore(context, new ImageStore(context));
+        JSONObject shared = store.store(new java.io.ByteArrayInputStream("shared note".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "note.txt", "text/plain");
+        JSONObject other = store.store(new java.io.ByteArrayInputStream("private note".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "private.txt", "text/plain");
+        call("instructions.save", obj("content", "Use concise Korean answers."));
+        call("chat.send", obj("text", "", "model", "agy-model", "attachments", array(shared.getString("id"))));
+        assertTrue(request.getString("prompt").contains(shared.getString("id")));
+        assertTrue(request.getString("prompt").contains("Use concise Korean answers."));
+        assertTrue(attachment(shared.getString("id")).toString().contains("shared note"));
+        try { attachment(other.getString("id")); fail("Unshared attachment was readable"); }
+        catch (ExecutionException expected) { assertTrue(expected.getCause().getMessage().contains("not shared")); }
+        call("chat.stop", obj());
+        try { attachment(shared.getString("id")); fail("Stopped turn retained attachment access"); }
+        catch (ExecutionException expected) { assertNotNull(expected.getCause()); }
     }
 }

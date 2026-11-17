@@ -207,8 +207,8 @@ class CliProvider {
         const {room,member}=turn;let result;
         if(p.action==='list')result=await this.host('tools',{roomId:room.id,runId:room.runId,mode:room.mode});
         else {
-          if(room.mode==='chat')throw new Error('대화 전용 방에서는 도구를 사용할 수 없습니다.');
-          const read=['mobile_read','mobile_list','mobile_search','mobile_phone_status','mobile_phone_apps','mobile_phone_screen'];
+          if(room.mode==='chat'&&p.name!=='mobile_attachment')throw new Error('대화 전용 방에서는 도구를 사용할 수 없습니다.');
+          const read=['mobile_attachment','mobile_read','mobile_list','mobile_search','mobile_phone_status','mobile_phone_apps','mobile_phone_screen'];
           const mutating=!read.includes(p.name);
           if(mutating && room.mode!=='write')throw new Error('읽기 전용 방에서는 수정·실행할 수 없습니다.');
           if(mutating && member.approvalMode==='auto-review' && (this.id!=='claude'||!s.nativeAutoReview))

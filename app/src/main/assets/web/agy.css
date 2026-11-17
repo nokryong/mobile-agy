@@ -1,7 +1,7 @@
 /* Antigravity uses its provider account and permission controls. */
 .account-profiles-card, .usage-card, #account-add, #logout,
 #fast-mode, #live-start, #composer-invite, #agents-invite,
-#composer-attach, #edit-config, #tools-config, #skill-import,
+#edit-config, #tools-config, #skill-import, #show-tools-panel,
 #approval-mode, label:has(> #approval-mode), #sidebar-usage {
   display: none !important;
 }
