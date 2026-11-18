@@ -365,24 +365,25 @@ test('sidebar sections collapse independently and restore their state',async()=>
  const restored=setup({}, {drafts:{'sidebar-section-sessions':'collapsed'}});await tick();
  assert.equal(restored.w.document.getElementById('sessions').hidden,true);
 });
-test('model picker and work permissions share the current Gemini approval policy',async()=>{
+test('the model picker opens work permissions to edit the Gemini approval policy',async()=>{
  const {w,calls,snapshot}=setup({'chat.agents.set':({args})=>{
    const next={...snapshot,agents:args.agents};
    w.mobileCodexEvent('state',next); return next;
  }});await tick();
- const d=w.document, picker=d.getElementById('picker-approval-mode'), sheet=d.getElementById('approval-mode');
+ const d=w.document, picker=d.getElementById('model-picker'), sheet=d.getElementById('approval-mode');
  d.getElementById('composer-options').click();await tick();
- assert.ok(picker.closest('dialog').open);
- assert.deepEqual([...picker.options].map(o=>o.value),['ask','allow-all']);
- assert.equal(picker.value,'ask');
- picker.value='allow-all';picker.dispatchEvent(new w.Event('change'));await tick();
- assert.deepEqual(calls.find(m=>m.action==='chat.agents.set').args,{agents:[{id:'gemini',approvalMode:'allow-all'}],expectedThreadId:'t',workspaceKey:''});
+ assert.ok(picker.open);
+ assert.equal(picker.querySelector('option[value="allow-all"]'),null);
+ assert.equal(sheet.closest('dialog').open,false);
  d.getElementById('model-picker-permissions').click();await tick();
- assert.ok(sheet.closest('dialog').open);assert.equal(sheet.value,'allow-all');
+ assert.ok(sheet.closest('dialog').open);assert.equal(sheet.value,'ask');
+ assert.deepEqual([...sheet.options].map(o=>o.value),['ask','allow-all']);
+ sheet.value='allow-all';sheet.dispatchEvent(new w.Event('change'));await tick();
+ assert.deepEqual(calls.find(m=>m.action==='chat.agents.set').args,{agents:[{id:'gemini',approvalMode:'allow-all'}],expectedThreadId:'t',workspaceKey:''});
+ assert.equal(sheet.value,'allow-all');
  assert.equal(d.getElementById('permissions').value,'workspace-write');
- sheet.value='ask';sheet.dispatchEvent(new w.Event('change'));await tick();assert.equal(picker.value,'ask');
  w.mobileCodexEvent('state',{...snapshot,busy:true,agents:[{id:'gemini',approvalMode:'allow-all'}]});
- assert.equal(picker.value,'allow-all');assert.ok(picker.disabled && sheet.disabled);
+ assert.equal(sheet.value,'allow-all');assert.ok(sheet.disabled);
 });
 test('approval UI returns original key and acceptance, never silently auto-approves',async()=>{
  const {w,responses}=setup();await tick();w.mobileCodexEvent('server.request',{key:'k',method:'item/commandExecution/requestApproval',params:{command:'pwd'}});

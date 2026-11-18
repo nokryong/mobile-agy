@@ -885,8 +885,6 @@ dialog > .toast { position: sticky; top: 0; bottom: auto; left: auto; z-index: 2
 #model-picker .model-choice:hover { background: var(--fill-2); }
 #model-refresh-status:not([hidden]) { display: block; padding: 4px 14px 10px; color: var(--text-2); font-size: var(--fs-xs); }
 .model-picker-footer { border-top: 1px solid var(--divider); padding-top: 3px; }
-.picker-approval { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px; color: var(--text-2); font-size: var(--fs-sm); }
-.picker-approval select { width: auto; max-width: 65%; min-height: 44px; }
 .model-picker-footer button { display: flex; align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 0 14px; border-radius: 12px; color: var(--text-2); font-size: var(--fs-sm); text-align: left; }
 .model-picker-footer button:hover { background: var(--fill-1); }
 .model-picker-footer svg { width: 15px; height: 15px; flex: none; }

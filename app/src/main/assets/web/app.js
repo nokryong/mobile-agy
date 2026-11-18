@@ -412,10 +412,9 @@
   let savingApproval = false;
   function syncApprovalControl(disabled = !!state.busy || !!state.proBusy) {
     const agent = state.agents?.find(a => a.id === 'gemini');
-    for (const select of [$('approval-mode'), $('picker-approval-mode')]) {
-      select.value = agent?.approvalMode === 'allow-all' ? 'allow-all' : 'ask';
-      select.disabled = disabled || savingApproval || !!state.agentRun;
-    }
+    const select = $('approval-mode');
+    select.value = agent?.approvalMode === 'allow-all' ? 'allow-all' : 'ask';
+    select.disabled = disabled || savingApproval || !!state.agentRun;
   }
   async function setApprovalMode(mode) {
     if (savingApproval) return;
@@ -2275,7 +2274,6 @@
   document.addEventListener('focusin', e => { if (!e.target.closest('.composer-add-wrap')) closeComposerAddMenu(false); });
   on('permissions', () => setPermissionMode($('permissions').value), 'change');
   on('approval-mode', () => setApprovalMode($('approval-mode').value), 'change');
-  on('picker-approval-mode', () => setApprovalMode($('picker-approval-mode').value), 'change');
   document.querySelectorAll('input[name="permission"]').forEach(r => r.addEventListener('change', () => setPermissionMode(r.value).catch(error => toast(error.message))));
   ensureNotificationSettings();
   selectSettingsTab('general');
