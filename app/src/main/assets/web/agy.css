@@ -2,6 +2,6 @@
 .account-profiles-card, .usage-card, #account-add, #logout,
 #fast-mode, #live-start, #composer-invite, #agents-invite,
 #edit-config, #tools-config, #skill-import, #show-tools-panel,
-#approval-mode, label:has(> #approval-mode), #sidebar-usage {
+#sidebar-usage {
   display: none !important;
 }

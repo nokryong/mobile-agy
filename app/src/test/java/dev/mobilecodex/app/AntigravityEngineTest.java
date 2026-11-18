@@ -73,6 +73,23 @@ public class AntigravityEngineTest {
         call("chat.stop", obj());
         assertFalse(call("state", obj()).getBoolean("busy"));
     }
+    @Test public void approvalChoiceFollowsOnlyItsConversation() throws Exception {
+        JSONObject change = obj("agents", array(obj("id", "gemini", "approvalMode", "allow-all")), "expectedThreadId", "", "workspaceKey", "");
+        call("chat.agents.set", change);
+        call("chat.send", obj("text", "hello", "model", "agy-model"));
+        assertEquals("allow-all", request.getString("approvalMode"));
+        assertEquals("chat", request.getString("mode"));
+        String thread = call("state", obj()).getString("threadId");
+        call("chat.stop", obj());
+        call("chat.new", obj());
+        call("chat.send", obj("text", "new", "model", "agy-model"));
+        assertEquals("ask", request.getString("approvalMode"));
+        call("chat.stop", obj());
+        call("chat.resume", obj("id", thread));
+        assertThrows(ExecutionException.class, () -> call("chat.agents.set", change));
+        call("chat.send", obj("text", "resume", "model", "agy-model"));
+        assertEquals("allow-all", request.getString("approvalMode"));
+    }
     @Test public void attachmentOnlyPromptReadsSharedFileAndRejectsUnsharedFile() throws Exception {
         var context = RuntimeEnvironment.getApplication();
         AttachmentStore store = new AttachmentStore(context, new ImageStore(context));

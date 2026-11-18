@@ -339,13 +339,12 @@
     updateFastButton();
     const model = $('model').selectedOptions[0]?.textContent || t('모델 목록 조회 필요');
     const effort = $('effort').selectedOptions[0]?.textContent || t('추론 설정 정보 없음');
-    const approval = $('approval-mode').selectedOptions[0]?.textContent || t('자동 검토');
+    const approval = $('approval-mode').selectedOptions[0]?.textContent || t('승인 받기');
     $('model-summary').textContent = model;
     $('effort-summary').textContent = $('effort').value ? effort : '';
     $('composer-options').setAttribute('aria-label', t('작업 설정: ') + model + t(', 추론 ') + effort + t(', 승인 ') + approval);
     $('composer-options').title = model + ' · ' + effort;
-    $('approval-mode').title = t('Codex 승인 방식') + ': ' + approval;
-    $('approval-mode').setAttribute('aria-label', t('Codex 승인 방식'));
+    $('approval-mode').title = t('승인 방식') + ': ' + approval;
     $('permission-help').textContent = state.busy ? t('작업이 끝나면 권한을 변경할 수 있습니다.') : ({'read-only':t('파일을 읽고 검토합니다.'), 'workspace-write':t('선택한 프로젝트의 파일을 수정할 수 있습니다.'), 'danger-full-access':t('앱에 허용된 기기 파일과 명령에 접근할 수 있습니다.')}[$('permissions').value] || '');
     const current = state.models.find(m => (m.model || m.id) === $('model').value) || state.models.find(m => m.isDefault);
     $('model-help').textContent = current?.description || (current ? t('연결된 계정에서 사용할 수 있는 모델입니다.') : t('모델 목록을 새로고침해 주세요.'));
@@ -410,15 +409,26 @@
     $('permissions').value = value; $('permissions').disabled = disabled;
     document.querySelectorAll('input[name="permission"]').forEach(r => { r.checked = r.value === value; r.disabled = disabled; });
   }
-  function syncApprovalControl(disabled = !!state.busy) {
-    const select = $('approval-mode'); select.value = state.approvalMode || 'auto-review'; select.disabled = disabled;
+  let savingApproval = false;
+  function syncApprovalControl(disabled = !!state.busy || !!state.proBusy) {
+    const agent = state.agents?.find(a => a.id === 'gemini');
+    for (const select of [$('approval-mode'), $('picker-approval-mode')]) {
+      select.value = agent?.approvalMode === 'allow-all' ? 'allow-all' : 'ask';
+      select.disabled = disabled || savingApproval || !!state.agentRun;
+    }
   }
   async function setApprovalMode(mode) {
-    const previous = state.approvalMode || 'auto-review';
-    $('approval-mode').disabled = true;
-    try { await call('approvals.set', {mode}); state.approvalMode = mode; }
-    catch (error) { $('approval-mode').value = previous; throw error; }
-    finally { $('approval-mode').value = state.approvalMode || previous; $('approval-mode').disabled = !!state.busy; optionsSummary(); }
+    if (savingApproval) return;
+    const scope = {expectedThreadId:state.threadId || '', workspaceKey:state.workspace?.key || ''};
+    savingApproval = true;
+    syncApprovalControl();
+    try {
+      await call('chat.agents.set', {...scope, agents:[{id:'gemini', approvalMode:mode}]});
+    } finally {
+      savingApproval = false;
+      syncApprovalControl();
+      optionsSummary();
+    }
   }
   async function setPermissionMode(mode) {
     const previous = state.permissions || 'workspace-write';
@@ -2265,6 +2275,7 @@
   document.addEventListener('focusin', e => { if (!e.target.closest('.composer-add-wrap')) closeComposerAddMenu(false); });
   on('permissions', () => setPermissionMode($('permissions').value), 'change');
   on('approval-mode', () => setApprovalMode($('approval-mode').value), 'change');
+  on('picker-approval-mode', () => setApprovalMode($('picker-approval-mode').value), 'change');
   document.querySelectorAll('input[name="permission"]').forEach(r => r.addEventListener('change', () => setPermissionMode(r.value).catch(error => toast(error.message))));
   ensureNotificationSettings();
   selectSettingsTab('general');

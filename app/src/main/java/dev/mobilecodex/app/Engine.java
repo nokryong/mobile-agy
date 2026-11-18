@@ -803,10 +803,10 @@ public final class Engine {
                     case "chat.steer" -> { steer(args); reply.complete(obj("ok", true), null); }
                     case "chat.new" -> {
                         String key = args.has("workspaceKey") ? args.optString("workspaceKey", "") : documents.key();
-                        documents.selectProject(key); clearActive(); draftAgents = new JSONArray(); publish(); reply.complete(snapshot(), null);
+                        documents.selectProject(key); clearActive(); publish(); reply.complete(snapshot(), null);
                     }
                     case "chat.resume" -> { resume(args.getString("id")); draftAgents = new JSONArray(); reply.complete(snapshot(), null); }
-                    case "chat.agents.set" -> { setAgents(args.optJSONArray("agents")); reply.complete(snapshot(), null); }
+                    case "chat.agents.set" -> { requireChatScope(args); setAgents(args.optJSONArray("agents")); reply.complete(snapshot(), null); }
                     case "chat.rename" -> { renameSession(args.getString("id"), args.getString("title")); publish(); reply.complete(snapshot(), null); }
                     case "chat.delete" -> {
                         boolean deletionPending = deleteSession(args.getString("id"));
@@ -853,7 +853,7 @@ public final class Engine {
         busy = !turnId.isBlank() || groupRunning(threadId);
         status = busy ? (!speaking.isBlank() && !speaking.equals(AgentGroup.CODEX) ? AgentGroup.name(speaking) + " · " + t("응답 중") : t("작업 중")) : (ready ? t("연결됨") : status);
     }
-    private void clearActive() { stopLive(); active = null; threadId = ""; turnId = ""; serverThreadId = ""; busy = false; if (ready) status = t("연결됨"); }
+    private void clearActive() { stopLive(); active = null; draftAgents = new JSONArray(); threadId = ""; turnId = ""; serverThreadId = ""; busy = false; if (ready) status = t("연결됨"); }
     public boolean isBusy() { return busy; }
     private boolean hasRunningTurns() { return !runningTurns.isEmpty(); }
     private boolean hasProOperations() {
@@ -1841,8 +1841,12 @@ public final class Engine {
         if (!active.optString("workspaceKey").equals(documents.key())) throw new IOException(t("이 대화의 원래 작업 폴더를 다시 연결해 주세요."));
         JSONObject member = AgentGroup.member(active, "gemini");
         if (member == null) {
-            member = AgentGroup.newAgent("gemini", model, effort, documents.key().isBlank() ? "chat" : permissionMode.equals("read-only") ? "read" : "write");
+            member = AgentGroup.newAgent("gemini", model, effort, defaultAgentMode());
             active.put("agents", new JSONArray().put(member));
+        }
+        if (member.optBoolean("useDefaultMode")) {
+            member.put("mode", defaultAgentMode());
+            member.remove("useDefaultMode");
         }
         member.put("model", model).put("effort", effort);
         active.put("model", model);
@@ -2515,12 +2519,16 @@ public final class Engine {
         }
     }
     private boolean groupRunning(String local) { GroupRun run = group; return run != null && !local.isBlank() && run.local.equals(local); }
+    private String defaultAgentMode() {
+        if (documents.key().isBlank()) return "chat";
+        return permissionMode.equals("read-only") ? "read" : "write";
+    }
     private JSONArray agentsView() {
         JSONArray source = active == null ? draftAgents : active.optJSONArray("agents"), out = new JSONArray();
         if (source != null) for (int i = 0; i < source.length(); i++) {
             JSONObject agent = source.optJSONObject(i); if (agent == null) continue;
             out.put(obj("id", agent.optString("id"), "provider", agent.optString("provider"), "name", agent.optString("name"),
-                "model", agent.optString("model"), "effort", agent.optString("effort"), "mode", agent.optString("mode", "chat"),
+                "model", agent.optString("model"), "effort", agent.optString("effort"), "mode", agent.optBoolean("useDefaultMode") ? defaultAgentMode() : agent.optString("mode", "chat"),
                 "approvalMode", agent.optString("approvalMode", "ask"), "enabled", agent.optBoolean("enabled", true)));
         }
         return out;
@@ -2558,12 +2566,17 @@ public final class Engine {
                 if (change.has("enabled") && !change.optBoolean("enabled")) continue;
                 JSONObject created = AgentGroup.newAgent(id, change.optString("model"), change.optString("effort"), mode.isEmpty() ? "chat" : mode);
                 created.put("approvalMode", approval);
+                // Selecting only an approval policy before the first turn must not pin file access.
+                if (mode.isEmpty() && change.has("approvalMode")) created.put("useDefaultMode", true);
                 next.put(created);
                 continue;
             }
             if (change.has("model")) agent.put("model", change.optString("model"));
             if (change.has("effort")) agent.put("effort", change.optString("effort"));
-            if (!mode.isEmpty()) agent.put("mode", mode);
+            if (!mode.isEmpty()) {
+                agent.put("mode", mode);
+                agent.remove("useDefaultMode");
+            }
             if (change.has("approvalMode")) agent.put("approvalMode", approval);
             // A removed agent keeps its own session and cursor, so a re-invite continues from there.
             if (change.has("enabled")) agent.put("enabled", change.optBoolean("enabled"));
